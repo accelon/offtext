@@ -269,6 +269,10 @@ const index = await evaluate(`(async () => {
     active: document.querySelector('.index-view.is-active')?.dataset.view,
     items: crossRows.length,
     allCross: crossRows.every((row) => !!row.querySelector('.index-stat.is-cross')),
+    crossChars: crossRows.filter((row) =>
+      (row.querySelector('.index-meta')?.textContent || '').includes('跨')
+    ).length,
+    graphIcon: crossRows[0]?.querySelectorAll('.index-graph svg circle').length || 0,
   };
   document.querySelector('.index-view[data-view="all"]').click();
 

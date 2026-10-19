@@ -4486,7 +4486,10 @@
       let back = 0;
       let crossOut = 0;
       let crossIn = 0;
-      const otherDomains = new Set();
+      const crossCounts = new Map();
+      const addCross = (domain) => {
+        crossCounts.set(domain, (crossCounts.get(domain) || 0) + 1);
+      };
 
       if (forwardSet) {
         forward = forwardSet.size;
@@ -4494,7 +4497,7 @@
           const domain = target.slice(0, target.indexOf(':'));
           if (domain !== entry.domain) {
             crossOut++;
-            otherDomains.add(domain);
+            addCross(domain);
           }
         }
       }
@@ -4504,10 +4507,18 @@
           const domain = source.slice(0, source.indexOf(':'));
           if (domain !== entry.domain) {
             crossIn++;
-            otherDomains.add(domain);
+            addCross(domain);
           }
         }
       }
+
+      const crossDomains = [...crossCounts.entries()]
+        .map(([domain, count]) => ({ domain, count }))
+        .sort(
+          (a, b) =>
+            b.count - a.count ||
+            domainName(a.domain).localeCompare(domainName(b.domain), 'zh-Hant')
+        );
 
       rows.push({
         ...entry,
@@ -4518,7 +4529,7 @@
         crossOut,
         crossIn,
         cross: crossOut + crossIn,
-        otherDomains: [...otherDomains],
+        crossDomains,
       });
     }
 
@@ -4750,7 +4761,7 @@
       } else if (state.indexView === 'cross') {
         const outCount = rows.filter((row) => row.crossOut > 0).length;
         const inCount = rows.filter((row) => row.crossIn > 0).length;
-        text += ' · 順鏈跨 ' + outCount + '、逆鏈跨 ' + inCount;
+        text += ' · 對外 ' + outCount + '、對內 ' + inCount;
       }
       summary.textContent = text;
 
@@ -4854,11 +4865,10 @@
     addStat('逆 ' + row.back, '逆鏈：本條目被 ' + row.back + ' 個條目引用');
     addStat('×' + row.product, '順鏈次數 × 逆鏈次數', 'is-product');
     if (row.cross) {
-      const names = row.otherDomains
-        .map((id) => disp(domainName(id)))
-        .sort((a, b) => a.localeCompare(b, 'zh-Hant'))
-        .join('、');
-      addStat('跨 ' + row.cross, '跨領域連線：' + names, 'is-cross');
+      row.crossDomains.forEach(({ domain, count }) => {
+        const name = disp(domainName(domain));
+        addStat(name + ' ' + count, '與「' + name + '」的連線 ' + count + ' 條', 'is-cross');
+      });
     }
     main.append(meta);
 
@@ -4866,13 +4876,29 @@
     main.addEventListener('click', () => navigate(row.domain, row.key));
     item.append(main);
 
-    const graph = el('button', 'index-graph', '圖');
+    const graph = el('button', 'index-graph');
     graph.type = 'button';
     graph.title = '以「' + disp(row.key) + '」為中心開圖譜';
     graph.setAttribute('aria-label', '以「' + disp(row.key) + '」為中心開圖譜');
+    graph.append(indexGraphGlyph());
     graph.addEventListener('click', () => navigateGraph(row.domain, row.key));
     item.append(graph);
     return item;
+  }
+
+  /** 和 toolbar 的「文／圖譜」toggle 相同的三小圈圖示。 */
+  function indexGraphGlyph() {
+    const svg = svgEl('svg', {
+      class: 'index-graph-icon',
+      viewBox: '0 0 24 24',
+      'aria-hidden': 'true',
+      focusable: 'false',
+    });
+    svg.append(svgEl('path', { d: 'M7.8 7.8 11 13.2M16.2 7.8 13 13.2' }));
+    svg.append(svgEl('circle', { cx: 7, cy: 6, r: 2.1 }));
+    svg.append(svgEl('circle', { cx: 17, cy: 6, r: 2.1 }));
+    svg.append(svgEl('circle', { cx: 12, cy: 16.5, r: 3.2 }));
+    return svg;
   }
 
   function emptyState(res) {

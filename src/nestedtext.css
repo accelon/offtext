@@ -1928,6 +1928,9 @@ html[data-theme="dark"] .nt-exp-key {
 
 .index-graph {
   flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   align-self: center;
   width: 28px;
   height: 26px;
@@ -1937,9 +1940,18 @@ html[data-theme="dark"] .nt-exp-key {
   background: transparent;
   color: color-mix(in srgb, var(--accent) 78%, var(--muted));
   font: inherit;
-  font-size: 11px;
-  line-height: 1;
   cursor: pointer;
+}
+
+.index-graph-icon {
+  display: block;
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
 }
 
 .index-graph:hover,
