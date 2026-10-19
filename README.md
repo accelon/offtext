@@ -53,6 +53,7 @@ node src/tools/hover-test.mjs
 node src/tools/intext-test.mjs
 node src/tools/mobile-test.mjs
 node src/tools/export-test.mjs
+node src/tools/topbar-test.mjs
 ```
 
 完整的測試與部署說明見 [tech.md](tech.md)。部署前先跑 `node src/tools/deploy-offtext.mjs --check`。

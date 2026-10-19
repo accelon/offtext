@@ -74,6 +74,7 @@ node src/tools/intext-test.mjs
 node src/tools/mobile-test.mjs
 node src/tools/export-test.mjs
 node src/tools/contrast-test.mjs
+node src/tools/topbar-test.mjs
 node src/tools/click-test.mjs
 node src/tools/settings-test.mjs
 node src/tools/graph-test.mjs

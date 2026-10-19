@@ -15,6 +15,7 @@
     "test:mobile": "node src/tools/mobile-test.mjs",
     "test:export": "node src/tools/export-test.mjs",
     "test:contrast": "node src/tools/contrast-test.mjs",
+    "test:topbar": "node src/tools/topbar-test.mjs --width=1100",
     "audit:knowledge": "node src/tools/knowledge-audit.mjs"
   },
   "dependencies": {
