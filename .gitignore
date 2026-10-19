@@ -1,0 +1,15 @@
+# 科目資料：先不備份
+/data/
+/.merge-backup/
+/.rewrite-backup/
+
+# 建置產物；只保留 README 會用到的截圖
+/build/*
+!/build/shots/
+!/build/shots/*.png
+
+# 本機設定／暫存
+.local/
+*.log
+*.tmp
+/.opt-analysis.mjs
