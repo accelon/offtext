@@ -14,6 +14,9 @@ Offtext 是一種以 `^[...]` 標記的巢狀文字：正文保持可讀，引�
 | [goal.md](goal.md) | 設計目標 |
 | [knowledge.md](knowledge.md) | 科目介紹、知識網路加權、DAG 規範與 pilot |
 | [knowledge-pilot.md](knowledge-pilot.md) | 物理科 DAG pilot：分層、樞紐與第一批編輯建議 |
+| [knowledge-pilot-math.md](knowledge-pilot-math.md) | 數學科 DAG pilot：拆環、補鏈、分層與樞紐 |
+| [math-expand-plan.md](math-expand-plan.md) | 數學擴寫計畫：線性代數、微積分、大陸術語與 `@tw` 對照 |
+| [editorial-guide.md](editorial-guide.md) | 編輯指南：新增科目或大修訂時，如何把引用編成 DAG |
 | [datastructure.md](datastructure.md) | TSV、引用、對照頁、索引與存檔格式 |
 | [tech.md](tech.md) | CM6、DOM renderer、lazy load、建置與測試 |
 | [ui.md](ui.md) | 啟動、閱讀、編輯、索引、圖譜、hover、手機、export |

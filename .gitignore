@@ -1,7 +1,7 @@
-# 科目資料：先不備份
-/data/
+# 備份目錄不進版控
 /.merge-backup/
 /.rewrite-backup/
+/.dag-backup/
 
 # 建置產物；只保留 README 會用到的截圖
 /build/*
