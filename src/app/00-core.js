@@ -81,9 +81,7 @@
   const searchInput = $('#search');
   const searchResults = $('#searchResults');
   const subjectSelect = $('#subject');
-  const viewSwitch = $('#viewSwitch');
-  const textViewBtn = $('#textViewBtn');
-  const glyphViewBtn = $('#glyphViewBtn');
+  const viewToggle = $('#viewToggle');
   const rankSelects = {
     important: $('#rankImportant'),
     core: $('#rankCore'),

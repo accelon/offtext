@@ -317,7 +317,7 @@ const ctrlClick = await evaluate(`(async () => {
 
 // 從閱讀頁按「圖譜」進入。
 const graphButton = await evaluate(`(async () => {
-  document.querySelector('#glyphViewBtn').click();
+  document.querySelector('#viewToggle').click();
   await new Promise((r) => setTimeout(r, 300));
   return {
     hash: location.hash,
@@ -440,11 +440,11 @@ const viewToggle = await evaluate(`(async () => {
   const read = () => ({
     hash: location.hash,
     title: document.querySelector('.entry-title')?.textContent,
-    text: document.querySelector('#textViewBtn').getAttribute('aria-pressed'),
-    glyph: document.querySelector('#glyphViewBtn').getAttribute('aria-pressed'),
+    graph: document.querySelector('#viewToggle').classList.contains('is-graph'),
+    pressed: document.querySelector('#viewToggle').getAttribute('aria-pressed'),
   });
 
-  document.querySelector('#glyphViewBtn').click();
+  document.querySelector('#viewToggle').click();
   await wait();
   const afterGlyph = read();
 
@@ -456,7 +456,7 @@ const viewToggle = await evaluate(`(async () => {
   await wait();
   const afterGGraph = read();
 
-  document.querySelector('#textViewBtn').click();
+  document.querySelector('#viewToggle').click();
   await wait();
   const afterText = read();
 

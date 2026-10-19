@@ -176,6 +176,18 @@ const nodeShape = await evaluate(`(() => {
 })()`);
 await shot('shot-graph-panel.png');
 
+const arrows = await evaluate(`(() => {
+  const edges = [...document.querySelectorAll('.graph-edge')];
+  const marker = document.querySelector('#graph-arrow');
+  return {
+    markers: document.querySelectorAll('marker#graph-arrow').length,
+    edges: edges.length,
+    withMarker: edges.filter((edge) => edge.getAttribute('marker-end')).length,
+    markerEnd: edges[0]?.getAttribute('marker-end') || '',
+    arrowFill: marker ? getComputedStyle(marker.querySelector('path')).fill : '',
+  };
+})()`);
+
 // 線粗：細／中／粗，實際 stroke-width 要跟著變。
 const edgeThick = await evaluate(`(async () => {
   const select = document.querySelector('#graphEdgeWidth');
@@ -256,6 +268,33 @@ const recentered = await evaluate(`(() => {
 })()`);
 await shot('shot-graph-recentered.png');
 
+const focusBar = await evaluate(`(async () => {
+  const node = [...document.querySelectorAll('.graph-node')].find(
+    (n) => !n.classList.contains('is-root')
+  );
+  if (!node) return { error: 'no non-root node' };
+  const id = node.dataset.id;
+  node.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  await new Promise((r) => setTimeout(r, 260));
+  const bar = document.querySelector('.graph-focus-bar');
+  const button = document.querySelector('.graph-focus-center');
+  const before = {
+    id,
+    visible: !!bar,
+    label: document.querySelector('.graph-focus-label')?.textContent || '',
+    button: button?.textContent || '',
+  };
+  if (button) button.click();
+  await new Promise((r) => setTimeout(r, 500));
+  return {
+    ...before,
+    rootAfter: document.querySelector('.graph-node.is-root')?.dataset.id || '',
+    hashAfter: location.hash,
+    barAfter: !!document.querySelector('.graph-focus-bar'),
+    stillGraph: location.hash.startsWith('#/graph/'),
+  };
+})()`);
+
 // 手機寬度：收合與展開都不能水平溢出。
 await send('Emulation.setDeviceMetricsOverride', {
   width: 420,
@@ -292,9 +331,33 @@ const mobileOpen = await evaluate(`(() => {
 })()`);
 await shot('shot-graph-panel-mobile-open.png');
 
+const mobileFocusBar = await evaluate(`(async () => {
+  const node = [...document.querySelectorAll('.graph-node')].find(
+    (n) => !n.classList.contains('is-root')
+  );
+  if (!node) return { error: 'no node' };
+  node.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  await new Promise((r) => setTimeout(r, 260));
+  const bar = document.querySelector('.graph-focus-bar');
+  const rect = bar?.getBoundingClientRect();
+  const button = document.querySelector('.graph-focus-center');
+  const visible = !!bar && rect.width > 0;
+  if (button) button.click();
+  await new Promise((r) => setTimeout(r, 450));
+  return {
+    visible,
+    width: rect ? Math.round(rect.width) : 0,
+    right: rect ? Math.round(rect.right) : 0,
+    innerWidth,
+    button: button?.textContent || '',
+    stillGraph: location.hash.startsWith('#/graph/'),
+    barAfter: !!document.querySelector('.graph-focus-bar'),
+  };
+})()`);
+
 console.log(
   JSON.stringify(
-    { panelOpen, nodeShape, edgeThick, edgeBack, panelCollapsed, recentered, mobileCollapsed, mobileOpen, exceptions },
+    { panelOpen, nodeShape, arrows, edgeThick, edgeBack, panelCollapsed, recentered, focusBar, mobileCollapsed, mobileOpen, mobileFocusBar, exceptions },
     null,
     2
   )

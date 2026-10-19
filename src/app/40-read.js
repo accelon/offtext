@@ -223,13 +223,12 @@
     updateDirtyUi();
     updateSaveUi();
     updateOrphanButton();
-    viewSwitch.hidden = state.view === 'index';
-    textViewBtn.classList.toggle('is-active', state.view === 'entry');
-    glyphViewBtn.classList.toggle('is-active', state.view === 'graph');
-    textViewBtn.setAttribute('aria-pressed', String(state.view === 'entry'));
-    glyphViewBtn.setAttribute('aria-pressed', String(state.view === 'graph'));
-    textViewBtn.title = '文字閱讀（按 g 切換）';
-    glyphViewBtn.title = '圖譜檢視（按 g 切換）';
+    viewToggle.hidden = state.view === 'index';
+    const isGraphView = state.view === 'graph';
+    viewToggle.classList.toggle('is-graph', isGraphView);
+    viewToggle.setAttribute('aria-pressed', String(isGraphView));
+    viewToggle.title = isGraphView ? '切換到文字（g）' : '切換到圖譜（g）';
+    viewToggle.setAttribute('aria-label', isGraphView ? '切換到文字' : '切換到圖譜');
 
     if (state.view === 'index') renderIndex();
     else if (state.view === 'graph') renderGraph();

@@ -74,10 +74,16 @@
     <button id="exportBtn" class="ghost export-btn" type="button" hidden title="把目前條目與可達的引用打包成單一 HTML">Export</button>
     <button id="saveBtn" class="save-btn" type="button" hidden title="檢查、重建索引，並在可用時寫回 TSV">存檔（0）</button>
 
-    <div id="viewSwitch" class="view-switch" role="group" aria-label="檢視模式">
-      <button id="textViewBtn" type="button" aria-pressed="true">文字</button>
-      <button id="glyphViewBtn" type="button" aria-pressed="false">圖譜</button>
-    </div>
+    <button id="viewToggle" class="view-toggle" type="button" aria-pressed="false"
+            aria-label="切換文字與圖譜" title="切換文字與圖譜（g）">
+      <span class="view-toggle-text" aria-hidden="true">文</span>
+      <svg class="view-toggle-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M7.8 7.8 11 13.2M16.2 7.8 13 13.2"/>
+        <circle cx="7" cy="6" r="2.1"/>
+        <circle cx="17" cy="6" r="2.1"/>
+        <circle cx="12" cy="16.5" r="3.2"/>
+      </svg>
+    </button>
     <button id="indexBtn" class="ghost" type="button">索引</button>
     <button id="leaveBtn" class="home-icon leave-btn" type="button" title="離開系統（儲存未存檔的科目）"
             aria-label="離開系統">
@@ -119,6 +125,19 @@
         </span>
       </div>
       <p class="set-hint" id="uiHint">手機模式不載入 CodeMirror、不顯示編輯功能，啟動時直接載入全部科目。手機／平板會自動使用這個模式。</p>
+    </section>
+
+    <section class="set-section">
+      <h3>閱讀字級</h3>
+      <div class="set-row">
+        <span>字級</span>
+        <span class="font-range">
+          <input id="readFontSize" type="range" min="12" max="24" step="1" value="17"
+                 aria-label="閱讀字級">
+          <output id="readFontSizeValue" for="readFontSize">17px</output>
+        </span>
+      </div>
+      <p class="set-hint">控制頁面標題、正文、輸入區與反鏈接；圖譜節點字級在圖譜面板另設。</p>
     </section>
 
     <section class="set-section">

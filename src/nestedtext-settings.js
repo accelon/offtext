@@ -1,10 +1,11 @@
 /*
- * 設置頁：主題（亮底／暗底／護眼）＋ 繁簡文字顯示三態。
+ * 設置頁：主題（亮底／暗底／護眼）＋ 繁簡文字顯示三態＋閱讀字級。
  *
  * 只換 CSS 變數與畫面文字，不改資料、不改搜尋原文。
  * 選擇存在 localStorage：
  *   offtext.theme.v1     light | dark | eye（沒有值＝跟隨系統）
  *   offtext.simmode.v1   0 原樣 | 1 無損簡體 | 2 強制簡體
+ *   offtext.fontsize.v1  12–24（預設 17）
  *
  * 依賴：nestedtext-simplified.js（window.NTSimplified）
  */
@@ -13,6 +14,10 @@
 
   const THEME_KEY = 'offtext.theme.v1';
   const SIM_KEY = 'offtext.simmode.v1';
+  const FONT_KEY = 'offtext.fontsize.v1';
+  const FONT_MIN = 12;
+  const FONT_MAX = 24;
+  const FONT_DEFAULT = 17;
   const THEMES = ['light', 'dark', 'eye'];
   const THEME_LABEL = { light: '亮底', dark: '暗底', eye: '護眼' };
   const SIM_LABELS = { 0: '保持原樣', 1: '無損簡體', 2: '強制簡體' };
@@ -43,12 +48,23 @@
     }
   }
 
+  function readFontSize() {
+    try {
+      const value = Number(localStorage.getItem(FONT_KEY));
+      if (value >= FONT_MIN && value <= FONT_MAX) return Math.round(value);
+    } catch (e) {
+      /* 私密模式 */
+    }
+    return FONT_DEFAULT;
+  }
+
   const query = new URLSearchParams(location.search);
   const queryTheme = THEMES.includes(query.get('theme')) ? query.get('theme') : null;
 
   /** null＝跟隨系統；有值＝使用者選過（或 ?theme= 指定） */
   let explicitTheme = queryTheme || readTheme();
   let simMode = readSimMode();
+  let fontSize = readFontSize();
   let open = false;
   let lastFocus = null;
   let onChange = null;
@@ -68,6 +84,24 @@
     const html = document.documentElement;
     if (explicitTheme) html.setAttribute('data-theme', explicitTheme);
     else html.removeAttribute('data-theme');
+  }
+
+  function applyFontSize() {
+    document.documentElement.style.setProperty('--reading-size', fontSize + 'px');
+  }
+
+  function setFontSize(value) {
+    const next = Math.max(FONT_MIN, Math.min(FONT_MAX, Math.round(Number(value) || FONT_DEFAULT)));
+    if (next === fontSize) return;
+    fontSize = next;
+    try {
+      localStorage.setItem(FONT_KEY, String(next));
+    } catch (e) {
+      /* 私密模式 */
+    }
+    applyFontSize();
+    paint();
+    if (onChange) onChange('font', next);
   }
 
   function setTheme(name) {
@@ -171,6 +205,11 @@
     });
     renderSimDemo();
 
+    const fontInput = $('#readFontSize');
+    const fontValue = $('#readFontSizeValue');
+    if (fontInput) fontInput.value = String(fontSize);
+    if (fontValue) fontValue.textContent = fontSize + 'px';
+
     const stats = $('#setStats');
     if (stats) {
       const table = simplifiedStats();
@@ -179,15 +218,18 @@
         '文字顯示：' +
         SIM_LABELS[simMode] +
         (size ? '（表 ' + size + ' 組）' : '') +
+        ' · 字級：' +
+        fontSize +
+        'px' +
         ' · 主題：' +
         THEME_LABEL[activeTheme];
     }
 
     const button = $('#settingsBtn');
     if (button) {
-      const custom = simMode !== 0 || !!explicitTheme;
+      const custom = simMode !== 0 || !!explicitTheme || fontSize !== FONT_DEFAULT;
       button.classList.toggle('is-custom', custom);
-      button.title = custom ? '設置（已調整主題或文字顯示）' : '設置（主題、繁簡文字顯示）';
+      button.title = custom ? '設置（已調整主題、字級或文字顯示）' : '設置（主題、字級、繁簡文字顯示）';
     }
   }
 
@@ -226,6 +268,7 @@
   function init(options) {
     onChange = (options && options.onChange) || null;
     applyTheme();
+    applyFontSize();
 
     const button = $('#settingsBtn');
     if (button) button.addEventListener('click', openSettings);
@@ -242,6 +285,11 @@
     simButtons().forEach((item) => {
       item.addEventListener('click', () => setSimMode(Number(item.dataset.mode)));
     });
+
+    const fontInput = $('#readFontSize');
+    if (fontInput) {
+      fontInput.addEventListener('input', () => setFontSize(fontInput.value));
+    }
 
     document.addEventListener(
       'keydown',
@@ -294,6 +342,11 @@
     setTheme,
     simModeOf: () => simMode,
     setSimMode,
+    fontSizeOf: () => fontSize,
+    setFontSize,
+    FONT_MIN,
+    FONT_MAX,
+    FONT_DEFAULT,
     display,
     toSimplified,
     simplifiedStats,

@@ -88,9 +88,7 @@
   const searchInput = $('#search');
   const searchResults = $('#searchResults');
   const subjectSelect = $('#subject');
-  const viewSwitch = $('#viewSwitch');
-  const textViewBtn = $('#textViewBtn');
-  const glyphViewBtn = $('#glyphViewBtn');
+  const viewToggle = $('#viewToggle');
   const rankSelects = {
     important: $('#rankImportant'),
     core: $('#rankCore'),
@@ -2939,13 +2937,12 @@
     updateDirtyUi();
     updateSaveUi();
     updateOrphanButton();
-    viewSwitch.hidden = state.view === 'index';
-    textViewBtn.classList.toggle('is-active', state.view === 'entry');
-    glyphViewBtn.classList.toggle('is-active', state.view === 'graph');
-    textViewBtn.setAttribute('aria-pressed', String(state.view === 'entry'));
-    glyphViewBtn.setAttribute('aria-pressed', String(state.view === 'graph'));
-    textViewBtn.title = '文字閱讀（按 g 切換）';
-    glyphViewBtn.title = '圖譜檢視（按 g 切換）';
+    viewToggle.hidden = state.view === 'index';
+    const isGraphView = state.view === 'graph';
+    viewToggle.classList.toggle('is-graph', isGraphView);
+    viewToggle.setAttribute('aria-pressed', String(isGraphView));
+    viewToggle.title = isGraphView ? '切換到文字（g）' : '切換到圖譜（g）';
+    viewToggle.setAttribute('aria-label', isGraphView ? '切換到文字' : '切換到圖譜');
 
     if (state.view === 'index') renderIndex();
     else if (state.view === 'graph') renderGraph();
@@ -4127,6 +4124,32 @@
     return panel;
   }
 
+  function renderGraphFocusBar(graph) {
+    const focus = state.graph.focus;
+    if (!focus) return null;
+    const node = graph.nodes.get(focus.id);
+    if (!node || node.id === graph.rootId) return null;
+    const bar = el('div', 'graph-focus-bar');
+    bar.append(
+      el(
+        'span',
+        'graph-focus-label',
+        '已選：' +
+          disp(node.key) +
+          ' · ' +
+          (focus.mode === 2 ? '逆鏈' : '順鏈')
+      )
+    );
+    const center = el('button', 'graph-focus-center', '設成中心');
+    center.type = 'button';
+    center.title = '以「' + disp(node.key) + '」為圖譜中心，不離開圖譜';
+    center.addEventListener('click', () =>
+      navigateGraph(node.domain, node.key, { recenter: true })
+    );
+    bar.append(center);
+    return bar;
+  }
+
   function renderGraphSvg(graph, rootDomain, width, height) {
     const focus = state.graph.focus;
     const litEdges = new Set();
@@ -4156,6 +4179,26 @@
       '--graph-edge-width',
       (GRAPH_EDGE_WIDTHS[state.graph.edgeWidth] || 2.4) + 'px'
     );
+    const defs = svgEl('defs');
+    const arrow = svgEl('marker', {
+      id: 'graph-arrow',
+      viewBox: '0 0 10 10',
+      refX: '9.5',
+      refY: '5',
+      markerWidth: '5.5',
+      markerHeight: '5.5',
+      orient: 'auto',
+      markerUnits: 'strokeWidth',
+    });
+    arrow.append(
+      svgEl('path', {
+        class: 'graph-arrow-head',
+        d: 'M 0 0 L 10 5 L 0 10 z',
+        fill: 'context-stroke',
+      })
+    );
+    defs.append(arrow);
+    svg.append(defs);
     const bg = svgEl('rect', {
       class: 'graph-bg',
       width,
@@ -4194,6 +4237,7 @@
         y1,
         x2,
         y2,
+        'marker-end': 'url(#graph-arrow)',
         'data-from': edge.from,
         'data-to': edge.to,
         'data-kind': edge.kind,
@@ -4383,6 +4427,8 @@
     const canvas = el('div', 'graph-canvas');
     canvas.append(renderGraphSvg(graph, res.domain, width, height));
     stage.append(canvas);
+    const focusBar = renderGraphFocusBar(graph);
+    if (focusBar) stage.append(focusBar);
     article.append(stage);
 
     if (!graph.edges.length) {
@@ -5015,6 +5061,10 @@ html[data-theme="dark"] .export-hover{box-shadow:0 16px 40px rgba(0,0,0,.55)}
   /* ---------- 設置 ---------- */
 
   function handleSettingsChange(kind) {
+    if (kind === 'font') {
+      if (entryController) entryController.refresh();
+      return;
+    }
     if (kind !== 'sim') return;
     // 顯示模式換了，搜尋索引也要換成對應的簡體形式；畫面重繪。
     // 簡體顯示時不允許編輯（選到的字不是 TSV 原文）。
@@ -5188,8 +5238,9 @@ html[data-theme="dark"] .export-hover{box-shadow:0 16px 40px rgba(0,0,0,.55)}
     event.returnValue = '';
   });
 
-  textViewBtn.addEventListener('click', () => switchView('text'));
-  glyphViewBtn.addEventListener('click', () => switchView('graph'));
+  viewToggle.addEventListener('click', () =>
+    switchView(state.view === 'graph' ? 'text' : 'graph')
+  );
   editBtn.addEventListener('click', () => setEditing(!state.editing));
   saveBtn.addEventListener('click', () => {
     saveDrafts();

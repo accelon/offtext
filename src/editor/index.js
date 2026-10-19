@@ -731,7 +731,7 @@ const editorTheme = EditorView.theme({
   '&': {
     backgroundColor: 'transparent',
     color: 'var(--ink)',
-    fontSize: '17px',
+    fontSize: 'var(--reading-size, 17px)',
     lineHeight: '2.05',
     fontFamily: 'inherit',
   },

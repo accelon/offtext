@@ -163,6 +163,33 @@ const opened = await evaluate(`(() => {
   };
 })()`);
 
+const font = await evaluate(`(async () => {
+  const input = document.querySelector('#readFontSize');
+  const sample = () => ({
+    value: input.value,
+    output: document.querySelector('#readFontSizeValue').textContent,
+    cssVar: getComputedStyle(document.documentElement).getPropertyValue('--reading-size').trim(),
+    title: getComputedStyle(document.querySelector('.entry-title')).fontSize,
+    line: getComputedStyle(document.querySelector('.nt-line')).fontSize,
+    backlink: getComputedStyle(document.querySelector('.backlinks')).fontSize,
+    search: getComputedStyle(document.querySelector('#search')).fontSize,
+    cm: getComputedStyle(document.querySelector('.cm-content')).fontSize,
+    stored: localStorage.getItem('offtext.fontsize.v1'),
+  });
+  input.value = '24';
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+  await new Promise((r) => setTimeout(r, 90));
+  const big = sample();
+  input.value = '12';
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+  await new Promise((r) => setTimeout(r, 90));
+  const small = sample();
+  input.value = '17';
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+  await new Promise((r) => setTimeout(r, 90));
+  return { big, small, restored: sample() };
+})()`);
+
 await evaluate("document.querySelector('#themeSeg button[data-theme=\"light\"]').click()");
 await sleep(120);
 const light = await evaluate(`(() => ({
@@ -369,6 +396,7 @@ console.log(
     {
       layout,
       opened,
+      font,
       light,
       dark,
       eye,

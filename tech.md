@@ -62,6 +62,8 @@ src/
 - 加權是衰減 BFS：直接 1、間接 0.5、二跳 0.25，最多 6 跳；同節點取最短距離一次。
 - `buildDag()` 用 Tarjan SCC 找環，再將分量縮成 DAG 分層；`inversions` 用「基礎度」找基礎概念回頭定義高階概念的邊。
 - `node src/tools/knowledge-audit.mjs` 輸出樞紐、基礎節點、環與反轉候選。
+- 圖譜選取節點後顯示「設成中心」，以 `navigateGraph(..., { recenter: true })` 留在圖譜模式換根。
+- 圖譜邊線使用 SVG marker `graph-arrow`，順鏈與逆鏈都指向目標。
 
 ## 建置
 
@@ -99,6 +101,12 @@ node src/tools/layout-check.mjs
 node src/tools/audit.mjs
 node src/tools/knowledge-audit.mjs
 ```
+
+## 設置
+
+- `offtext.theme.v1`：亮底／暗底／護眼。
+- `offtext.simmode.v1`：0 原樣、1 無損簡體、2 強制簡體。
+- `offtext.fontsize.v1`：12–24，預設 17；寫入 `--reading-size`，控制標題、正文、CM6 內容、搜尋輸入與反鏈接。圖譜節點字級仍是 `state.graph.fontSize`，兩者獨立。
 
 ## 已知限制
 

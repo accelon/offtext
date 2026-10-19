@@ -13,6 +13,10 @@
   /* ---------- 設置 ---------- */
 
   function handleSettingsChange(kind) {
+    if (kind === 'font') {
+      if (entryController) entryController.refresh();
+      return;
+    }
     if (kind !== 'sim') return;
     // 顯示模式換了，搜尋索引也要換成對應的簡體形式；畫面重繪。
     // 簡體顯示時不允許編輯（選到的字不是 TSV 原文）。
@@ -186,8 +190,9 @@
     event.returnValue = '';
   });
 
-  textViewBtn.addEventListener('click', () => switchView('text'));
-  glyphViewBtn.addEventListener('click', () => switchView('graph'));
+  viewToggle.addEventListener('click', () =>
+    switchView(state.view === 'graph' ? 'text' : 'graph')
+  );
   editBtn.addEventListener('click', () => setEditing(!state.editing));
   saveBtn.addEventListener('click', () => {
     saveDrafts();

@@ -680,6 +680,32 @@
     return panel;
   }
 
+  function renderGraphFocusBar(graph) {
+    const focus = state.graph.focus;
+    if (!focus) return null;
+    const node = graph.nodes.get(focus.id);
+    if (!node || node.id === graph.rootId) return null;
+    const bar = el('div', 'graph-focus-bar');
+    bar.append(
+      el(
+        'span',
+        'graph-focus-label',
+        '已選：' +
+          disp(node.key) +
+          ' · ' +
+          (focus.mode === 2 ? '逆鏈' : '順鏈')
+      )
+    );
+    const center = el('button', 'graph-focus-center', '設成中心');
+    center.type = 'button';
+    center.title = '以「' + disp(node.key) + '」為圖譜中心，不離開圖譜';
+    center.addEventListener('click', () =>
+      navigateGraph(node.domain, node.key, { recenter: true })
+    );
+    bar.append(center);
+    return bar;
+  }
+
   function renderGraphSvg(graph, rootDomain, width, height) {
     const focus = state.graph.focus;
     const litEdges = new Set();
@@ -709,6 +735,26 @@
       '--graph-edge-width',
       (GRAPH_EDGE_WIDTHS[state.graph.edgeWidth] || 2.4) + 'px'
     );
+    const defs = svgEl('defs');
+    const arrow = svgEl('marker', {
+      id: 'graph-arrow',
+      viewBox: '0 0 10 10',
+      refX: '9.5',
+      refY: '5',
+      markerWidth: '5.5',
+      markerHeight: '5.5',
+      orient: 'auto',
+      markerUnits: 'strokeWidth',
+    });
+    arrow.append(
+      svgEl('path', {
+        class: 'graph-arrow-head',
+        d: 'M 0 0 L 10 5 L 0 10 z',
+        fill: 'context-stroke',
+      })
+    );
+    defs.append(arrow);
+    svg.append(defs);
     const bg = svgEl('rect', {
       class: 'graph-bg',
       width,
@@ -747,6 +793,7 @@
         y1,
         x2,
         y2,
+        'marker-end': 'url(#graph-arrow)',
         'data-from': edge.from,
         'data-to': edge.to,
         'data-kind': edge.kind,
@@ -936,6 +983,8 @@
     const canvas = el('div', 'graph-canvas');
     canvas.append(renderGraphSvg(graph, res.domain, width, height));
     stage.append(canvas);
+    const focusBar = renderGraphFocusBar(graph);
+    if (focusBar) stage.append(focusBar);
     article.append(stage);
 
     if (!graph.edges.length) {
