@@ -4,19 +4,19 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 export const SOURCES = [
-  'modern-chinese-history.tsv',
-  'chemistry.tsv',
-  'biology.tsv',
-  'math.tsv',
-  'physics.tsv',
-  'earthscience.tsv',
   'chinese.tsv',
-  'computing.tsv',
+  'ancientchina.tsv',
+  'worldhistory.tsv',
+  'modern-chinese-history.tsv',
+  'modernization.tsv',
   'civics.tsv',
   'art.tsv',
-  'worldhistory.tsv',
-  'ancientchina.tsv',
-  'modernization.tsv',
+  'math.tsv',
+  'physics.tsv',
+  'chemistry.tsv',
+  'biology.tsv',
+  'earthscience.tsv',
+  'computing.tsv',
   'aijargon.tsv',
   'economics.tsv',
   'fq.tsv',
@@ -32,9 +32,11 @@ export function parseTsv(text, fallbackId) {
     const id = /id\s*:\s*"([^"]*)"/.exec(line);
     const name = /name\s*:\s*"([^"]*)"/.exec(line);
     const hidden = /hidden\s*:\s*"?([a-z]+)"?/.exec(line);
+    const group = /group\s*:\s*"([^"]*)"/.exec(line);
     if (id) meta.id = id[1];
     if (name) meta.name = name[1];
     if (hidden) meta.hidden = hidden[1] === 'true';
+    if (group) meta.group = group[1];
     i++;
   }
 
@@ -52,6 +54,7 @@ export function parseTsv(text, fallbackId) {
     id: meta.id || fallbackId,
     name: meta.name || meta.id || fallbackId,
     hidden: !!meta.hidden,
+    group: meta.group || '',
     entries,
   };
 }

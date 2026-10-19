@@ -8,7 +8,10 @@
 !/build/shots/
 !/build/shots/*.png
 
-# 本機設定／暫存
+# npm／本機設定／暫存
+/node_modules/
+/.tmp-cm/
+/.tmp-*
 .local/
 *.log
 *.tmp

@@ -17,6 +17,7 @@ const APP_FILES = [
   'simplified-data.js',
   'nestedtext-simplified.js',
   'nestedtext-settings.js',
+  'offtext-cm.js',
   'nestedtext.js',
 ];
 
@@ -40,7 +41,10 @@ const manifest = domains.map((domain) => ({
   id: domain.id,
   name: domain.name || domain.id,
   hidden: !!domain.hidden,
-  count: Object.keys(domain.entries).filter((key) => key !== '_').length,
+  group: domain.group || '其他',
+  count: Object.keys(domain.entries).filter(
+    (key) => key !== '_' && !String(domain.entries[key]).trim().startsWith('@')
+  ).length,
 }));
 fs.writeFileSync(
   path.join(BUILD, 'tsv-manifest.js'),

@@ -38,10 +38,12 @@ function parseMeta(text) {
   const id = /id\s*:\s*"([^"]*)"/.exec(first);
   const name = /name\s*:\s*"([^"]*)"/.exec(first);
   const hidden = /hidden\s*:\s*"?([a-z]+)"?/.exec(first);
+  const group = /group\s*:\s*"([^"]*)"/.exec(first);
   return {
     id: id ? id[1] : '',
     name: name ? name[1] : '',
     hidden: hidden ? hidden[1] === 'true' : false,
+    group: group ? group[1] : '',
   };
 }
 
@@ -51,7 +53,7 @@ function countEntries(text) {
     if (!line.trim() || /^\s*\{.*\}\s*$/.test(line)) continue;
     const tab = line.indexOf('\t');
     const key = (tab < 0 ? line : line.slice(0, tab)).trim();
-    if (key && key !== '_') n++;
+    if (key && key !== '_' && !String(line.slice(tab + 1)).trim().startsWith('@')) n++;
   }
   return n;
 }
@@ -119,6 +121,7 @@ async function listTsvs() {
       id: meta.id || file.replace(/\.tsv$/i, ''),
       name: meta.name || meta.id || file.replace(/\.tsv$/i, ''),
       hidden: meta.hidden,
+      group: meta.group,
       count: countEntries(text),
       size: stat.size,
     });

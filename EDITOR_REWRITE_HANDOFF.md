@@ -3,6 +3,7 @@
 > 用途：開新話題、全面改寫編輯器時的交接規格。  
 > 專案根目錄：`D:\2026\offtext`  
 > 文件版本：2026-10-19
+> **2026-10-19 更新：編輯器已改為 CodeMirror 6。閱讀與編輯共用同一個 `EditorView`；`src/editor/` 是原始碼，`src/offtext-cm.js` 是 esbuild 產生的 IIFE bundle。§8 已改寫；舊 textarea 編輯器只在 bundle 載入失敗時作為 fallback。**
 
 ---
 
@@ -19,17 +20,20 @@
 
 ### 2.1 前端
 
-- 原生 HTML / CSS / JavaScript。
-- 經典 `<script>` 載入，沒有 bundler、沒有前端框架、沒有 npm 前端依賴。
-- 可直接用 `file://` 開啟，也可用 HTTP 靜態伺服器。
+- 原生 HTML / CSS / JavaScript；閱讀與編輯用 CodeMirror 6。
+- `src/editor/*.js` 是 ESM 原始碼；`src/tools/build-editor.mjs` 用 esbuild 打包成 `src/offtext-cm.js`（IIFE，`window.OfftextCM`）。
+- `src/index.html` 以經典 `<script>` 載入，沒有執行期 bundler；`file://` 可直接開啟。
 - 檔案：
 
 | 檔案 | 作用 |
 | --- | --- |
 | `src/index.html` | 頁面骨架、啟動頁、toolbar、設置頁 |
 | `src/nestedtext-core.js` | 解析、查表、別名、循環、索引、排行 |
-| `src/nestedtext.js` | 啟動、路由、渲染、搜尋、圖譜、編輯器、閱讀歷史 |
-| `src/nestedtext.css` | 版面、深度色相、亮／暗／護眼主題、編輯器、設置頁、響應式 |
+| `src/nestedtext.js` | 啟動、路由、渲染、搜尋、圖譜、草稿／存檔／孤兒節點 |
+| `src/nestedtext.css` | 版面、深度色相、亮／暗／護眼主題、CM6、設置頁、響應式 |
+| `src/editor/index.js` | CM6 EditorView、巢狀 widget、`^` 補全、括號規則 |
+| `src/editor/parse.js` | 帶位置的 offtext 解析、16 字計算 |
+| `src/offtext-cm.js` | GENERATED：CM6 IIFE bundle |
 | `src/simplified-data.js` | 繁簡對照表（GENERATED，每兩個字一組） |
 | `src/nestedtext-simplified.js` | 無損／強制簡體轉換、搜尋形式 |
 | `src/nestedtext-settings.js` | 設置頁：主題與文字顯示三態、localStorage |
@@ -37,33 +41,39 @@
 
 ### 2.2 建置
 
-- `src/tools/build.mjs` 只複製前端檔到 `build/`，並產生 `build/tsv-manifest.js`（只列檔名，不含 TSV 內容）。
+- `src/tools/build-editor.mjs`：用 esbuild 把 `src/editor/index.js` 打包成 `src/offtext-cm.js`（IIFE，global `OfftextCM`）。因為要支援 `file://`，不能輸出 ESM 或動態 import。
+- `src/tools/build.mjs` 複製前端檔到 `build/`，並產生 `build/tsv-manifest.js`（只列檔名，不含 TSV 內容）。
 - **不再產生 `build/data.js`**。
 - `build/` 只有：
 
 ```text
 build/
 ├─ index.html
+├─ offtext-cm.js          # GENERATED，CM6 bundle
 ├─ nestedtext-core.js
 ├─ nestedtext.css
 ├─ nestedtext.js
 ├─ simplified-data.js
 ├─ nestedtext-simplified.js
 ├─ nestedtext-settings.js
-├─ tsv-manifest.js       # GENERATED，啟動頁清單
-└─ shots/              # 展示截圖，不會被 build 清掉
+├─ tsv-manifest.js        # GENERATED，啟動頁清單
+└─ shots/                 # 展示截圖，不會被 build 清掉
 ```
 
 ### 2.3 Node 工具
 
 | 檔案 | 作用 |
 | --- | --- |
+| `src/tools/build-editor.mjs` | esbuild 打包 CM6；由 Node 寫檔避開 Windows 子程序權限 |
 | `src/tools/tsv-data.mjs` | 直接從 `data/*.tsv` 載入 domain（含 `file`），供測試／健檢 |
 | `src/tools/test-core.mjs` | 核心邏輯測試 |
 | `src/tools/test-simplified.mjs` | 繁簡三態轉換測試 |
 | `src/tools/gen-simplified.mjs` | 從 accelon26 的 `simplified-data.ts` 產生 `src/simplified-data.js` |
 | `src/tools/serve.mjs` | 本機 HTTP 除錯伺服器；`GET /api/tsvs`、`POST /api/tsv/<檔名>` |
-| `src/tools/http-test.mjs` | Edge 實測 HTTP 清單、記憶體編輯、未存檔、離開儲存 |
+| `src/tools/cm-test.mjs` | Edge 實測 CM6 閱讀／編輯、巢狀、`^` 補全、刪括號、孤兒、16 字、手機 |
+| `src/tools/cm-file-test.mjs` | Edge 實測 `file://` 直接載入與編輯 |
+| `src/tools/cm-block-test.mjs` | Edge 實測 block widget 巢狀 |
+| `src/tools/http-test.mjs` | Edge 實測 HTTP 清單、CM6 編輯、存檔／重建、離開、寫回 API |
 | `src/tools/deploy-offtext.mjs` | 部署 `build/` 與 `data/*.tsv` 到 `shutonggui.cn/offtext/` |
 | `src/tools/live-check.mjs` | Edge 實測線上站清單與載入 |
 | `src/tools/settings-test.mjs` | Edge 實測設置頁、主題、三態、搜尋、重載、手機寬度 |
@@ -104,8 +114,10 @@ data/fq.tsv                       id=fq, name=財商
 第一行是 meta：
 
 ```text
-{id:"biology",name:"生物"}
+{id:"biology",name:"生物",group:"理科"}
 ```
+
+`group` 可省略；目前用「文科／理科／進階」三類，只影響啟動頁清單的分組。
 
 之後每行：
 
@@ -149,7 +161,8 @@ index = {
   links: {
     forward,   // 順鏈結：source -> targets
     backward,  // 逆鏈結：target -> sources
-    backlinks  // 反鏈接來源，含 count
+    backlinks, // 反鏈接來源，含 count
+    incoming   // 所有被引用的 target（含首頁來源），孤兒判定用
   },
   rankings   // Map<domainId, { important, core, hub }>
 }
@@ -187,7 +200,7 @@ index = {
 5. 解析每個 TSV、檢查 meta id、建立索引。
 6. 預設開第一個科目的首頁 `_`。
 7. 使用者可再開其他 TSV。
-8. 開檔只讀、不要求寫入權限；編輯先存在記憶體（見 §8）。
+8. 開檔只讀、不要求寫入權限；編輯先存在草稿（見 §7.8、§8）。
 
 ### 5.2 HTTP 模式
 
@@ -341,9 +354,13 @@ render();
   - `順鏈 5`
   - `逆鏈 20`
   - `順鏈 3、逆鏈 5、乘積 15`
-- `dirtyBtn` 只在有科目未存檔時出現，文字是「● 科目名 未存檔」或「● N 科未存檔」；點一下開儲存視窗。
+- `dirtyBtn` 只在有科目已套用但未寫檔時出現，文字是「● 科目名 未存檔」或「● N 科未存檔」；點一下開儲存視窗；若有草稿，點一下先存草稿。
 - 科目下拉中，未存檔科目名稱後面加 `●`。
-- 離開圖示在扳手左邊，執行「未存檔 → 儲存／不儲存 → 回啟動頁」流程。
+- 搜尋右側有「編輯」／「完成」、「孤兒 N」與「存檔（N）」：
+  - 「編輯」把同一個 CM6 view 從唯讀切成可編輯，游標保留；再按變「完成」。
+  - 「存檔（N）」只在有草稿時出現，N 是變更的條目數；按下才檢查、重建索引、必要時寫檔。
+  - 「孤兒 N」只在編輯態出現，列出本科沒有反鏈接的條目。
+- 離開圖示在扳手左邊，執行「草稿確認 → 未存檔 → 儲存／不儲存 → 回啟動頁」流程。
 - 扳手固定放在 toolbar 最右邊，開啟設置頁。
 
 ### 7.2 閱讀歷史
@@ -361,15 +378,18 @@ render();
 ### 7.3 條目頁
 
 - 單欄流式，桌面最大 760px，手機全寬。
-- 標題列右側是反鏈接。
+- 標題列右側是反鏈接；正文是 CM6 EditorView。
+- 閱讀態：`EditorState.readOnly=true`，但保留 contenteditable 讓游標可見；輸入被阻擋。
+- 編輯態：同一個 EditorView 取消 readOnly，游標位置不變，不換窗、不彈 modal。
 - 正文引用是彩色文字＋實線底線，無底色、無箭頭。
-- 點引用：展開／收合。
+- 點引用：展開／收合；編輯態點引用會把游標移進 `^[...]`，顯示控制代碼。
 - `Ctrl`／`⌘` + 點擊：直接替換閱讀頁到該條目。
 - 展開時有焦點模式：只保留該路徑清楚，其餘淡化。
 - 鍵盤：
-  - `/` 聚焦搜尋
-  - `g` 文字／圖譜切換
-  - `Esc` 關閉搜尋／編輯器
+  - `/` 聚焦搜尋（CM6 聚焦時不攔）
+  - `g` 文字／圖譜切換（CM6 聚焦時不攔）
+  - `Ctrl/⌘+S`、`Ctrl/⌘+Enter` 存檔
+  - `Esc` 關閉搜尋／孤兒浮窗／設定頁
 
 ### 7.4 反鏈接
 
@@ -437,90 +457,94 @@ toolbar 最右邊的扳手（`#settingsBtn`）開啟模態設置頁（`#settings
 - 設置頁用同一句範例並列三態，不同的字加虛線；目前選的那列突顯。
 - 簡體顯示時禁止用畫面選取新增／編輯詞目，避免把簡體字寫成 key；要編輯先切回「保持原樣」。
 
-### 7.8 未存檔與離開
+### 7.8 草稿、存檔與離開
 
-編輯採「記憶體優先」：
+編輯採「草稿優先」：
 
-1. 進入編輯器**不再**要求寫入權限。
-2. 儲存（`Ctrl/⌘+Enter` 或按鈕）只更新記憶體中的 `domain.entries`，加入 `dirtyDomains`，重建索引。
-3. `dirtyBtn` 出現；科目下拉的該科名稱加 `●`；footer 顯示「未存檔 N 科」。
-4. 推薦標記（自動加 `^[...]`）也先改記憶體，同樣標 dirty。
+1. 進入編輯**不再**要求寫入權限。
+2. 打字只更新 `drafts`（`domain:key → {value, base}`）；**不重建索引、不重算反鏈接**。
+3. 右上「存檔（N）」的 N 是草稿條目數，不是按鍵次數；toolbar／科目下拉的 `●` 只代表「已套用但未寫檔」。
+4. 按「存檔」才：
+   - 驗證空值、Tab、`@` 對照頁、新條目名稱（≤16 字、不能含 `@ | [ ]`）、引用長度（≤16 字）。
+   - 把草稿寫入 `DATA`，`markDirty()`，重建一次全科目索引。
+   - 若 HTTP 有 `POST /api/tsv/`，直接寫回；有 file handle 且已授權也直接寫；否則停在 dirty，等離開。
+5. 存檔失敗（驗證錯誤）開檢查視窗，草稿保留。
+6. `dirtyBtn` 若有草稿，先存草稿；否則開「儲存未存檔的科目」。
+7. 直接關閉分頁／重新載入時，若有草稿或 dirty，`beforeunload` 會警告；不會自動儲存。
 
 離開流程：
 
 - toolbar 的離開圖示（扳手左邊）呼叫 `leaveSystem()`。
-- 沒有 dirty：直接 `resetToBoot()` 回啟動頁。
+- 有草稿：先 `confirm()` 問「要先存檔再離開嗎？」；確定才 `saveDrafts()`，取消則留下。
+- 沒有草稿、沒有 dirty：直接 `resetToBoot()`。
 - 有 dirty：開「儲存後離開」視窗，列出未存檔科目（可勾選）：
   - `儲存並離開`：逐科 `saveDomain()`；成功後清 dirty、回啟動頁。
   - `不儲存離開`：`confirm()` 後丟棄記憶體修改、回啟動頁。
   - `取消`：留在原頁。
-- `dirtyBtn` 點一下可開「儲存未存檔的科目」，只儲存、不離開。
 - `saveDomain()`：
   - 有 `fileHandles` → `saveFileSession()`，此時才 `queryPermission`／`requestPermission({mode:'readwrite'})`。
   - HTTP 且 dev server 有 API → `POST /api/tsv/<檔名>`。
   - 以上都沒有 → `showSaveFilePicker()` 另存新檔。
-- 直接關閉分頁／重新載入時，若有 dirty，`beforeunload` 會跳瀏覽器原生警告；但不會自動儲存。
-- `resetToBoot()` 會清空 `DATA`、索引、domains、dirty、fileHandles，移除 hash，重新顯示啟動頁清單。
+- `resetToBoot()` 會清空 `DATA`、索引、domains、drafts、dirty、fileHandles，移除 hash，重新顯示啟動頁清單。
 
 ---
 
-## 8. 編輯器現況
+## 8. 編輯器：CodeMirror 6
 
 ### 8.1 進入編輯
 
-1. 在正文選取一段未標記文字。
-2. 浮出「＋ 新增詞目」或「編輯詞目」。
-3. `ensureEditAccess()` 只檢查科目存在，**不要求寫入權限**，直接開編輯器。
-4. 若該科有 file handle，標題顯示「檔名 · 離開時儲存」；沒有 handle 顯示「記憶體編輯 · 離開時儲存」。
-5. 寫入權限延到「離開」↔「儲存並離開」才要求（見 §7.8）。
+1. 條目頁右上按「編輯」，或選取正文後按「＋ 新增詞目」／「編輯詞目」。
+2. 同一窗區的 CM6 view 取消 `readOnly`；不換頁、不彈 modal。
+3. 新條目以選取文字為 key，最多 16 字；不能含 `@ | [ ]`。
+4. 寫入權限延到「存檔」有 API／handle 時，或「離開」↔「儲存並離開」才要求（見 §7.8）。
 
-### 8.2 編輯器介面
+### 8.2 CM6 結構
 
-- 左側：可過濾的現有名詞清單。
-  - 過濾 key 或 value 內文。
-  - 點一下在游標位置插入 `^[名詞]`。
-- 右側：純文字 `<textarea>`。
-- 底部：
-  - 取消
-  - 存入記憶體並找可標記處
-- 檔案名稱與「離開時儲存」顯示在標題下方。
-- `Ctrl`／`⌘` + Enter 儲存（存記憶體）。
-- `Esc` 關閉。
+- `src/editor/index.js`：`createEntry({parent,text,domain,key,editing,host})` 回傳 controller。
+- 根 view 與每個展開的巢狀 view 共用 `extensionsFor()`：`lineWrapping`、`drawSelection`、`bracketMatching`、`EditorView.theme`、`decorationField`。
+- 根 view 額外有：`history()`、`closeBrackets()`、`autocompletion()`、keymap（Backspace/Delete 的括號規則、`Mod-s`、`Mod-Enter`）、`caretInput`。
+- 巢狀 view：`EditorState.readOnly=true`，但 `editable=true`，游標可見；不可編輯。
+- 閱讀態根 view：`readOnly=true`、`editable=true`；游標仍在，輸入被阻擋。
+- 編輯態根 view：`readOnly=false`；用 `Compartment` 切換，不重建 view。
 
-### 8.3 儲存流程
+### 8.3 裝飾與巢狀
 
-1. 新 value 寫入記憶體 domain。
-2. `markDirty(domainId)`；toolbar／科目下拉顯示未存檔。
-3. 重建全科目索引。
-4. 導到該條目。
-5. 掃描同科其他條目中的未標記提及。
-6. 顯示勾選清單：
-   - 每個來源條目一列
-   - 顯示 context
-   - 預設全選
-7. 使用者按「加入選取項目」：
-   - 插入 `^[...]` 到記憶體
-   - 再次 `markDirty()`
-   - 再次重建索引。
-8. **不寫檔**；等使用者在離開視窗按「儲存並離開」或 dirty badge 按「儲存全部」才呼叫 `saveDomain()`。
+- `buildDecorations()` 用 `parseSpans()` 取得帶位置的 text/ref token。
+- 游標在 `^[...]` 內且為編輯態：不替換，顯示原始碼並加 `.cm-offtag-active`。
+- 游標在 offtag 外：整個 token 換成 `RefWidget`（裝飾文字＋底線）。
+- 展開且短（`NT.chooseMode` 回 inline）：`RefWidget` 內再掛一個唯讀 CM6 view（`.cm-nested-inline`）。
+- 展開且長（block）：原位置留 label，行尾加 `BlockWidget`（`.cm-exp-block`），內含另一個唯讀 CM6 view。
+- 深度、焦點、反鏈接來源都轉成 widget／wrapper class，不再掃 DOM。
+- `RefWidget.eq()` 比較 path、label、expanded、value、status、focus、displayVersion；打字時沒變的巢狀 widget 不會重建。
+- 焦點模式：`is-focus-current`／`is-dim` class 由 `focusClass(path, focusPath)` 計算。
+- 簡體顯示：閱讀態用 `TextWidget` 換掉有差異的 text token；編輯態強制原樣（設定頁切換時會退出編輯）。
 
-### 8.4 編輯器限制
+### 8.4 鍵盤與括號
 
-目前是「簡單純文字編輯器」：
+- 輸入 `^`：插入 `^[]`，游標停在 `[` 後，`setTimeout(startCompletion)`。
+- 補全：`^[` 之後列出所有可插入條目，輸入文字即時過濾；Enter 插入 key；重名跨科時可插入 `key@domain`。
+- 游標在 `^[` 後按 Backspace：一次 transaction 刪 `[` 和對應 `]`。
+- 游標在 `^` 後、`[]` 前按 Backspace：刪整個空 `[]`。
+- 游標在 `^[` 前按 Delete：刪 `^[` 和對應 `]`。
+- 左括號被選取刪除（非 collapsed）目前交給 CM6 預設行為；主要規則是 collapsed Backspace/Delete。
 
-- 沒有語法高亮。
-- 沒有即時引用驗證。
-- 沒有 undo 歷史（只有瀏覽器 textarea 原生 undo）。
-- 有 `beforeunload` 警告，但沒有完整的「離開前自動存」。
-- 沒有外部檔案變更偵測／衝突處理。
-- value 只能是單行；換行會轉成空白。
-- 一次儲存整個 domain，不是局部 patch。
-- 推薦標記以「來源條目」為單位，不是逐 occurrence 勾選。
-- 沒有版本歷史或備份。
-- 儲存失敗會停在離開視窗並顯示錯誤，可重試或選「不儲存離開」。
-- 編輯器只處理目前載入的 domain；跨科引用仍依查表順序。
-- 文字顯示切到簡體時，畫面選取無法用來新增／編輯詞目（選到的不是原文）；必須先切回「保持原樣」。
-- 未存檔只在分頁記憶體；直接關閉分頁或當掉不會保留。
+### 8.5 孤兒節點
+
+- 編輯態 toolbar「孤兒 N」開啟浮窗；桌面右上、手機底部。
+- 孤兒＝本科沒有反鏈接的內容條目（不含 `_`、`@` 對照頁）。
+- 點一項：關閉浮窗、導到該條目、直接進編輯。
+- 同面板列「缺目標引用」；點一項可直接建立新條目並編輯。
+- 面板可勾「全部科目」。
+
+### 8.6 限制
+
+- 一次存檔是整個 domain 序列化，不是局部 patch。
+- value 只能是單行；CM6 中的換行存檔時轉空白。
+- 沒有外部檔案變更偵測／衝突處理、版本歷史。
+- 行內展開的巢狀 CM6 是 inline-block，較長時會佔一行；不再是舊版那種文字繞排。
+- 夾文 16 字限制套用在新條目名稱與所有引用 inner text；既有資料目前最大 14 字。
+- 未套用草稿只在分頁記憶體；直接關閉或當掉不會保留。
+- 簡體顯示時不能選取新增／編輯；要切回「保持原樣」。
 
 ---
 
@@ -546,10 +570,10 @@ toolbar 最右邊的扳手（`#settingsBtn`）開啟模態設置頁（`#settings
 | 財商 | `fq.tsv` | 113 |
 
 - 索引總計：1,818 條（不含首頁與 `@` 對照頁）。
-- 全資料 audit：1,818 內容條目＋222 對照頁、2,165 個引用。
+- 全資料 audit：1,818 內容條目＋222 對照頁、2,567 個引用。
 - 斷鏈：0。
 - 壞別名：0。
-- 引用圖中回到自己的條目：401。
+- 引用圖中回到自己的條目：556。
 
 ---
 
@@ -562,9 +586,10 @@ toolbar 最右邊的扳手（`#settingsBtn`）開啟模態設置頁（`#settings
 - 查表順序：本科 → 其他科；同一科的中英對照是 value 以 `@` 開頭的轉址頁。
 - 啟動頁列出 `data/` 所有 TSV（manifest），HTTP 可勾選直接載入；file:// 仍用選檔。
 - 開檔只讀；編輯不先要求寫入權限。
-- 編輯先存在記憶體，`dirtyDomains` 驅動 toolbar 與科目下拉的「未存檔」。
-- 按「離開」時才儲存；file handle 才要求 `readwrite` 權限。
-- 不使用 localStorage 當資料來源；未存檔只在分頁記憶體。
+- 編輯先存在 `drafts`（草稿），按「存檔」才寫入 `DATA`、標 dirty、重建索引。
+- `dirtyDomains` 只代表「已套用但未寫檔」，驅動 toolbar 與科目下拉的 `●`。
+- 按「離開」時才要求 file handle 的 `readwrite` 權限；HTTP 有 API 時「存檔」可直接寫。
+- 不使用 localStorage 當資料來源；草稿與未存檔只在分頁記憶體。
 - 儲存後重建全科目索引。
 - 反鏈接前 4 筆＋`+N` 下拉。
 - 排行標籤「重要／核心／樞紐」，計數只在 hover hint。
@@ -572,24 +597,22 @@ toolbar 最右邊的扳手（`#settingsBtn`）開啟模態設置頁（`#settings
 - HTTP 不再是唯讀；`?data=` 仍可直接載入。
 - `src/tools/serve.mjs` 的 `GET /api/tsvs`、`POST /api/tsv/<檔名>` 是除錯用寫回管道。
 - `modern-chinese-history` 的 id、檔名與顯示名。
-- 設置頁扳手固定在頂欄最右邊；離開圖示在它左邊。
+- 設置頁扳手固定在頂欄最右邊；離開圖示在它左邊；編輯／存檔／孤兒在搜尋右側。
 - 主題三態：亮底／暗底／護眼；`localStorage['offtext.theme.v1']`，沒選過跟隨系統。
 - 繁簡文字顯示三態：原樣／無損簡體／強制簡體；`localStorage['offtext.simmode.v1']`。
 - 無損簡體只轉一對一，合併字保留；轉換只影響畫面，不改 TSV 與索引。
 - 搜尋索引同時收原文與簡體形式。
+- 編輯器是 CM6，不是 textarea；閱讀／編輯共用同一個 view。
 
-### 10.2 建議改寫時處理
+### 10.2 建議後續處理
 
-- 把編輯器抽成獨立 module／元件，定義：
-  - `open({ domain, key, value })`
-  - `save()` 回傳 `{ ok, value, fileWritten }`
-  - `recommend()` 回傳 recommendations
-- 將「檔案權限」「TSV 序列化」「索引重建」與編輯器 UI 解耦。
-- 增加 dirty state、離開確認、錯誤重試、外部變更偵測。
-- 增加引用插入搜尋、游標位置保留、鍵盤操作。
-- 推薦標記可改成逐 occurrence 勾選。
+- 把 `drafts` 的提交、驗證、持久化再抽成 `draft-store`，讓 UI 只訂閱狀態。
+- 增加外部檔案變更偵測／衝突處理與版本歷史。
+- 推薦標記（未標記提及）目前沒有入口；若要恢復，應以草稿形式加入，不要每次掃描重建索引。
+- 逐 occurrence 勾選推薦，而不是以來源條目為單位。
 - 若要做富文字／Markdown，先決定 TSV value 的跳脫與多行規則。
 - 保留 `NT.buildIndex()` 作為唯一索引來源，不要在 UI 重掃全部條目。
+- 巢狀 CM6 view 目前每個展開各一個 EditorView；展開樹很大時可考慮共用 view 或虛擬化。
 
 ### 10.3 目前不存在的東西
 
@@ -601,24 +624,32 @@ toolbar 最右邊的扳手（`#settingsBtn`）開啟模態設置頁（`#settings
 
 ---
 
-## 11. 建議的新編輯器邊界
+## 11. CM6 編輯器邊界
 
-若要全面改寫編輯器，最小契約可以是：
+`src/editor/index.js` 的實際契約：
 
 ```text
-Input:
-  domainId
-  key
-  initialValue
-  fileHandle?            可寫入的檔案 handle
-  existingEntries        左側快速插入清單
-  allDomains             跨科目插入
-
-Output:
-  savedValue
-  insertedLinkTargets
-  recommendations
-  fileWritten: boolean
+createEntry({
+  parent,          // 掛載點
+  text,            // 目前 value
+  domain, key,
+  editing,         // 根 view 初始是否可編輯
+  maxDepth,        // 巢狀深度上限
+  host: {
+    hue(depth), display(text), simMode(),
+    resolve(ref, domain, contextDomain),
+    chooseMode(value), isExpanded(path), toggleExpanded(path),
+    focusPath(), navigate(domain,key), showMissing(tok, ctxDomain),
+    isBacklinkSource(res), navigateBacklink(),
+    requestEdit(domain,key), completions(query, contextDomain),
+    onChange(text), saveShortcut()
+  }
+})
+→ {
+  view,
+  setEditing(flag), setText(text), refresh(), focus(),
+  getSelectionInfo(), scrollToPath(path), destroy()
+}
 ```
 
 外部負責：
@@ -627,5 +658,6 @@ Output:
 - 將 value 序列化回 TSV。
 - 重建 `NT.buildIndex()`。
 - 更新閱讀頁、反鏈接、排行、閱讀歷史。
+- 草稿驗證、存檔、孤兒清單。
 
-編輯器本身只負責「文字與引用編輯」，不要直接碰資料載入與全域渲染，會比目前單一 IIFE 內的實作容易測試與替換。
+編輯器本身只負責「文字、引用與巢狀顯示」，不直接碰資料載入與全域渲染。

@@ -1,0 +1,23 @@
+{
+  "name": "offtext",
+  "version": "0.2.0",
+  "private": true,
+  "description": "巢式文字 Offtext：以 CodeMirror 6 編輯與閱讀同一份巢狀文字。",
+  "scripts": {
+    "build:editor": "node src/tools/build-editor.mjs",
+    "build": "node src/tools/build-editor.mjs && node src/tools/build.mjs",
+    "serve": "node src/tools/serve.mjs",
+    "test:core": "node src/tools/test-core.mjs",
+    "test:editor": "node src/tools/cm-test.mjs"
+  },
+  "dependencies": {
+    "@codemirror/autocomplete": "^6.18.6",
+    "@codemirror/commands": "^6.8.1",
+    "@codemirror/language": "^6.11.0",
+    "@codemirror/state": "^6.5.2",
+    "@codemirror/view": "^6.43.14"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0"
+  }
+}

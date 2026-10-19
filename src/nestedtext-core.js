@@ -221,6 +221,7 @@
     const forward = new Map();
     const backward = new Map();
     const backlinks = new Map();
+    const incoming = new Set();
 
     for (const domain of index.order) {
       if (domain.hidden) continue;
@@ -234,6 +235,7 @@
           if (targetId === sourceId) continue;
 
           addToSet(forward, sourceId, targetId);
+          incoming.add(targetId);
           if (key !== '_') {
             addToSet(backward, targetId, sourceId);
             addBacklink(backlinks, targetId, domain.id, key);
@@ -242,7 +244,7 @@
       }
     }
 
-    return { forward, backward, backlinks };
+    return { forward, backward, backlinks, incoming };
   }
 
   function backlinksFor(index, targetId) {

@@ -30,6 +30,10 @@
     view: 'entry',
     indexDomain: null,
     readOnly: false,
+    editing: false,
+    createKey: null,
+    pendingEdit: false,
+    focusEditorOnce: false,
     graph: {
       depth: 2,
       forward: true,
@@ -71,6 +75,9 @@
   const bootSelectNone = $('#bootSelectNone');
   const dirtyBtn = $('#dirtyBtn');
   const leaveBtn = $('#leaveBtn');
+  const editBtn = $('#editBtn');
+  const saveBtn = $('#saveBtn');
+  const orphanBtn = $('#orphanBtn');
 
   const TSV_MANIFEST = Array.isArray(window.OFFTEXT_TSV_MANIFEST)
     ? window.OFFTEXT_TSV_MANIFEST
@@ -78,6 +85,15 @@
 
   // 只存在記憶體、尚未寫回 TSV 的科目。
   const dirtyDomains = new Set();
+
+  /*
+   * 編輯中的草稿：domain:key → {domain,key,value,base,seq}。
+   * 打字只更新這裡，不重建索引；按「存檔」才 commit + 檢查 + 重建。
+   */
+  const drafts = new Map();
+  let draftSeq = 0;
+  let entryController = null;
+  let orphanPanel = null;
 
   const domains = state.index.order.filter((d) => !d.hidden);
 
@@ -156,6 +172,7 @@
       ' 條 · ' +
       domains.length +
       ' 個分類' +
+      (drafts.size ? ' · 未套用 ' + drafts.size : '') +
       (dirtyDomains.size ? ' · 未存檔 ' + dirtyDomains.size + ' 科' : '');
   }
 
@@ -349,21 +366,40 @@
     bootCatalog.hidden = false;
     bootOpen.hidden = true;
     bootCatalogList.textContent = '';
-    TSV_MANIFEST.forEach((item) => {
-      const label = el('label', 'boot-tsv' + (item.hidden ? ' is-hidden' : ''));
-      label.title = item.file + '（' + item.id + '）';
-      const input = document.createElement('input');
-      input.type = 'checkbox';
-      input.value = item.file;
-      input.checked = true;
-      label.append(
-        input,
-        el('span', 'boot-tsv-name', disp(item.name || item.id)),
-        el('span', 'boot-tsv-id', item.id),
-        el('span', 'boot-tsv-count', (item.count || 0) + ' 條')
-      );
-      bootCatalogList.append(label);
-    });
+    const groups = ['文科', '理科', '進階', '其他'];
+    const byGroup = new Map(groups.map((g) => [g, []]));
+    for (const item of TSV_MANIFEST) {
+      const g = groups.includes(item.group) ? item.group : '其他';
+      byGroup.get(g).push(item);
+    }
+    for (const group of groups) {
+      const items = byGroup.get(group);
+      if (!items.length) continue;
+      const section = el('section', 'boot-group');
+      section.dataset.group = group;
+      const head = el('div', 'boot-group-head');
+      head.append(el('strong', 'boot-group-name', group));
+      head.append(el('span', 'boot-group-count', items.length + ' 科'));
+      section.append(head);
+      const grid = el('div', 'boot-group-items');
+      for (const item of items) {
+        const label = el('label', 'boot-tsv' + (item.hidden ? ' is-hidden' : ''));
+        label.title = item.file + '（' + item.id + '）';
+        const input = document.createElement('input');
+        input.type = 'checkbox';
+        input.value = item.file;
+        input.checked = true;
+        label.append(
+          input,
+          el('span', 'boot-tsv-name', disp(item.name || item.id)),
+          el('span', 'boot-tsv-id', item.id),
+          el('span', 'boot-tsv-count', (item.count || 0) + ' 條')
+        );
+        grid.append(label);
+      }
+      section.append(grid);
+      bootCatalogList.append(section);
+    }
     bootCatalogCount.textContent = TSV_MANIFEST.length + ' 個檔';
 
     const fileMode = location.protocol === 'file:';
@@ -895,42 +931,63 @@
       hideAddTerm();
       return;
     }
-    const selection = window.getSelection();
-    if (!selection || selection.isCollapsed || !selection.rangeCount) {
-      hideAddTerm();
-      return;
-    }
-    const range = selection.getRangeAt(0);
-    const common = range.commonAncestorContainer;
-    const element = common.nodeType === 1 ? common : common.parentElement;
-    if (!element || !reader.contains(element)) {
-      hideAddTerm();
-      return;
-    }
-    if (element.closest('.nt-ref, .nt-exp, .entry-head, .graph')) {
-      hideAddTerm();
-      return;
-    }
     // 簡體顯示時，選取到的字已經不是 TSV 裡的原文；新增／編輯會寫錯 key。
     // 先請使用者切回「保持原樣」，避免汙染資料。
     if (SETTINGS && SETTINGS.simModeOf() !== 0) {
       hideAddTerm();
-      showToast('簡體顯示模式下不能新增詞目；請先在設置頁切回「保持原樣」');
       return;
     }
-    const text = selection.toString().replace(/\s+/g, ' ').trim();
-    if (!text || text.length > 30 || /[\[\]\n\t]/.test(text)) {
+
+    let text = '';
+    let rect = null;
+    let domainId = state.root.domain;
+    const info = entryController ? entryController.getSelectionInfo() : null;
+
+    if (info) {
+      text = String(info.text || '').replace(/\s+/g, ' ').trim();
+      rect = info.rect;
+      if (info.domain && state.index.byId.has(info.domain)) domainId = info.domain;
+    } else {
+      const selection = window.getSelection();
+      if (!selection || selection.isCollapsed || !selection.rangeCount) {
+        hideAddTerm();
+        return;
+      }
+      const range = selection.getRangeAt(0);
+      const common = range.commonAncestorContainer;
+      const element = common.nodeType === 1 ? common : common.parentElement;
+      if (!element || !reader.contains(element)) {
+        hideAddTerm();
+        return;
+      }
+      if (element.closest('.nt-ref, .nt-exp, .entry-head, .graph, .cm-editor')) {
+        hideAddTerm();
+        return;
+      }
+      text = selection.toString().replace(/\s+/g, ' ').trim();
+      rect = range.getBoundingClientRect();
+    }
+
+    if (!text) {
       hideAddTerm();
       return;
     }
-    const rect = range.getBoundingClientRect();
-    if (!rect.width && !rect.height) {
+    if (/[\[\]\n\t@|]/.test(text)) {
+      hideAddTerm();
+      return;
+    }
+    if ([...text].length > 16) {
+      hideAddTerm();
+      showToast('條目名稱最多 16 個字（目前 ' + [...text].length + ' 個字）');
+      return;
+    }
+    if (!rect || (!rect.width && !rect.height)) {
       hideAddTerm();
       return;
     }
 
-    const domainId = state.root.domain;
-    const exists = state.index.byId.get(domainId).entries.has(text);
+    const loaded = state.index.byId.get(domainId);
+    const exists = !!(loaded && loaded.entries.has(text)) || !!draftFor(domainId, text);
     pendingSelection = { domain: domainId, key: text, exists };
     addTermBtn.textContent = exists ? '編輯詞目' : '＋ 新增詞目';
     addTermBtn.hidden = false;
@@ -962,10 +1019,24 @@
     closeRecommendations();
     closeLoadMore();
     closeDirtyDialog();
+    closeCheckDialog();
+    closeOrphanPanel();
+    if (entryController) {
+      entryController.destroy();
+      entryController = null;
+    }
     hideAddTerm();
     hideSearch();
     hideGraphTip();
 
+    drafts.clear();
+    draftSeq = 0;
+    lastDraftCount = 0;
+    state.editing = false;
+    state.createKey = null;
+    state.pendingEdit = false;
+    state.focusEditorOnce = false;
+    document.body.classList.remove('is-editing-entry');
     dirtyDomains.clear();
     fileHandles.clear();
     DATA = null;
@@ -1005,10 +1076,30 @@
     rebuildSearchEntries();
     updateStats();
     updateDirtyUi();
+    updateSaveUi();
+    updateOrphanButton();
     renderBootCatalog();
   }
 
   function leaveSystem() {
+    if (drafts.size) {
+      const count = drafts.size;
+      if (
+        !window.confirm(
+          '有 ' +
+            count +
+            ' 個條目尚未套用。\n按「確定」先存檔再離開；按「取消」留下繼續編輯。'
+        )
+      ) {
+        return;
+      }
+      saveDrafts().then((ok) => {
+        if (!ok) return;
+        if (dirtyDomains.size) showDirtyDialog({ leave: true });
+        else resetToBoot();
+      });
+      return;
+    }
     if (!dirtyDomains.size) {
       resetToBoot();
       return;
@@ -1423,13 +1514,672 @@
     recoOverlay = backdrop;
   }
 
+  /* ---------- CodeMirror 內嵌編輯 ---------- */
+
+  const CM = window.OfftextCM || null;
+  let lastDraftCount = -1;
+  let saveBusy = false;
+  let checkOverlay = null;
+
+  function draftId(domain, key) {
+    return domain + ':' + key;
+  }
+
+  function baseValue(domain, key) {
+    const data = dataDomain(domain);
+    if (!data || !data.entries) return undefined;
+    return data.entries[key];
+  }
+
+  function draftFor(domain, key) {
+    return drafts.get(draftId(domain, key)) || null;
+  }
+
+  function valueFor(domain, key) {
+    const draft = draftFor(domain, key);
+    if (draft) return draft.value;
+    const value = baseValue(domain, key);
+    return value === undefined ? null : String(value);
+  }
+
+  function setDraft(domain, key, value) {
+    const text = String(value == null ? '' : value);
+    const base = baseValue(domain, key);
+    const baseText = base === undefined ? null : String(base);
+    const id = draftId(domain, key);
+    if (baseText !== null && text === baseText) {
+      drafts.delete(id);
+    } else {
+      const prev = drafts.get(id);
+      drafts.set(id, {
+        domain,
+        key,
+        value: text,
+        base: baseText,
+        seq: prev ? prev.seq : ++draftSeq,
+      });
+    }
+    updateSaveUi();
+  }
+
+  function updateSaveUi() {
+    const count = drafts.size;
+    if (saveBtn) {
+      const hidden = count === 0;
+      if (saveBtn.hidden !== hidden) saveBtn.hidden = hidden;
+      if (saveBtn.dataset.count !== String(count)) {
+        saveBtn.dataset.count = String(count);
+        saveBtn.textContent = '存檔（' + count + '）';
+        saveBtn.title =
+          count +
+          ' 個條目有未套用的變更；按一下檢查、重建索引，並在可用時寫回 TSV。';
+      }
+      if (saveBtn.disabled !== saveBusy) saveBtn.disabled = saveBusy;
+    }
+    if (editBtn) {
+      const label = state.editing ? '完成' : '編輯';
+      if (editBtn.textContent !== label) editBtn.textContent = label;
+      editBtn.classList.toggle('is-active', state.editing);
+      editBtn.disabled = state.view !== 'entry';
+    }
+    if (orphanBtn) {
+      const hidden = !state.editing || state.view !== 'entry';
+      if (orphanBtn.hidden !== hidden) orphanBtn.hidden = hidden;
+    }
+    if (count !== lastDraftCount) {
+      lastDraftCount = count;
+      updateStats();
+    }
+  }
+
+  function countOrphans(domainId) {
+    const domain = state.index.byId.get(domainId);
+    if (!domain) return 0;
+    let count = 0;
+    for (const [key, value] of domain.entries) {
+      if (key === '_' || isRedirect(value)) continue;
+      if (!state.index.links.incoming.has(domainId + ':' + key)) count++;
+    }
+    return count;
+  }
+
+  function updateOrphanButton() {
+    if (!orphanBtn) return;
+    if (!state.editing || state.view !== 'entry') {
+      orphanBtn.hidden = true;
+      return;
+    }
+    const count = countOrphans(state.root.domain);
+    orphanBtn.hidden = false;
+    orphanBtn.textContent = '孤兒' + (count ? ' ' + count : '');
+    orphanBtn.classList.toggle('is-empty', count === 0);
+    orphanBtn.title =
+      '本科有 ' + count + ' 個沒有被任何條目引用的孤兒；點選後直接編寫。';
+  }
+
+  /**
+   * 編輯時查引用：先看索引，再看草稿。草稿中的新條目在存檔前就能被展開。
+   */
+  function editorResolve(ref, domain, contextDomain) {
+    const name = String(ref == null ? '' : ref).trim();
+    const res = NT.resolve(state.index, name, domain, contextDomain);
+    if (res.status === 'ok') {
+      const draft = draftFor(res.domain, res.key);
+      return draft ? { ...res, value: draft.value } : res;
+    }
+    const candidates = [];
+    if (domain) candidates.push(domain);
+    if (contextDomain) candidates.push(contextDomain);
+    if (state.root.domain) candidates.push(state.root.domain);
+    for (const id of new Set(candidates)) {
+      const draft = draftFor(id, name);
+      if (draft) {
+        return { status: 'ok', domain: id, key: name, value: draft.value, chain: [] };
+      }
+    }
+    return res;
+  }
+
+  function editorCompletions(query, contextDomain) {
+    const q = String(query == null ? '' : query).trim();
+    const needle = q.toLowerCase();
+    const keyCount = new Map();
+    for (const domain of domains) {
+      for (const [key, value] of domain.entries) {
+        if (key === '_' || isRedirect(value)) continue;
+        keyCount.set(key, (keyCount.get(key) || 0) + 1);
+      }
+    }
+
+    const found = new Map();
+    const add = (item) => {
+      const prev = found.get(item.key);
+      if (!prev || item.score > prev.score) found.set(item.key, item);
+    };
+
+    domains.forEach((domain, domainIndex) => {
+      for (const [key, value] of domain.entries) {
+        if (key === '_' || isRedirect(value)) continue;
+        const plain = NT.plainText(value);
+        const forms = SETTINGS ? SETTINGS.searchForms(key + ' ' + plain) : [key + ' ' + plain];
+        if (needle && !forms.join(' ').toLowerCase().includes(needle)) continue;
+        let score = 0;
+        if (key === q) score += 1000;
+        else if (key.startsWith(q) && q) score += 420;
+        else if (key.includes(q) && q) score += 200;
+        else score += 30;
+        if (domain.id === contextDomain) score += 130;
+        if (!q) score += Math.max(0, 80 - [...key].length);
+        score -= domainIndex;
+        add({
+          key,
+          domain: domain.id,
+          domainName: disp(domain.name || domain.id),
+          preview: preview(value),
+          score,
+        });
+      }
+    });
+
+    for (const draft of drafts.values()) {
+      if (draft.base !== null) continue;
+      if (needle && !draft.key.toLowerCase().includes(needle)) continue;
+      add({
+        key: draft.key,
+        domain: draft.domain,
+        domainName: disp(domainName(draft.domain)),
+        preview: '新條目（尚未存檔）',
+        score: (draft.domain === contextDomain ? 160 : 20) + 500,
+      });
+    }
+
+    return [...found.values()]
+      .sort((a, b) => b.score - a.score || a.key.localeCompare(b.key, 'zh-Hant'))
+      .map((item) => ({
+        ...item,
+        apply:
+          (keyCount.get(item.key) || 0) > 1 && item.domain !== contextDomain
+            ? item.key + '@' + item.domain
+            : item.key,
+      }));
+  }
+
+  function makeEditorHost(domainId, key) {
+    return {
+      hue: (depth) => NT.hue(depth),
+      maxDepth: NT.MAX_DEPTH,
+      display: disp,
+      simMode: () => (SETTINGS ? SETTINGS.simModeOf() : 0),
+      resolve: (ref, domain, contextDomain) => editorResolve(ref, domain, contextDomain),
+      chooseMode: (value) => NT.chooseMode(value, state.mode),
+      isExpanded: (path) => state.expanded.has(path),
+      focusPath: () => state.focusPath,
+      toggleExpanded: (path) => toggleEditorPath(path),
+      navigate: (target, targetKey) => navigate(target, targetKey),
+      showMissing: (tok, contextDomain) => showMissingTarget(tok, contextDomain),
+      isBacklinkSource: (res) =>
+        !!(
+          state.backlink &&
+          res &&
+          res.status === 'ok' &&
+          res.domain === state.backlink.targetDomain &&
+          res.key === state.backlink.targetKey
+        ),
+      navigateBacklink: () => {
+        if (state.backlink) navigate(state.backlink.targetDomain, state.backlink.targetKey);
+      },
+      requestEdit: (target, targetKey) => openEntryForEdit(target, targetKey),
+      completions: (text, contextDomain) => editorCompletions(text, contextDomain),
+      onChange: (text) => setDraft(domainId, key, text),
+      saveShortcut: () => {
+        saveDrafts();
+      },
+    };
+  }
+
+  function mountEntryEditor(article, value) {
+    if (!CM || typeof CM.createEntry !== 'function') return false;
+    const body = el('div', 'entry-body');
+    article.append(body);
+    entryController = CM.createEntry({
+      parent: body,
+      text: String(value == null ? '' : value),
+      domain: state.root.domain,
+      key: state.root.key,
+      depth: 0,
+      editing: state.editing,
+      maxDepth: NT.MAX_DEPTH,
+      host: makeEditorHost(state.root.domain, state.root.key),
+    });
+    return true;
+  }
+
+  function toggleEditorPath(path) {
+    if (state.expanded.has(path)) closePath(path);
+    else {
+      state.expanded.add(path);
+      state.focusPath = path;
+    }
+    reader.classList.toggle('is-focusing', !!state.focusPath && state.view === 'entry');
+    if (entryController) {
+      entryController.refresh();
+      if (state.expanded.has(path)) {
+        requestAnimationFrame(() => {
+          if (entryController) entryController.scrollToPath(path);
+        });
+      }
+    }
+  }
+
+  function setEditing(flag) {
+    const next = !!flag;
+    if (next && (state.view !== 'entry' || !entryController)) {
+      showToast('請先開啟一個條目');
+      return;
+    }
+    if (next && SETTINGS && SETTINGS.simModeOf() !== 0) {
+      showToast('簡體顯示模式下不能編輯；請先在設置頁切回「保持原樣」');
+      return;
+    }
+    state.editing = next;
+    if (entryController) entryController.setEditing(next);
+    document.body.classList.toggle('is-editing-entry', next);
+    updateSaveUi();
+    updateOrphanButton();
+    if (next) refreshOrphanPanel();
+    else closeOrphanPanel();
+  }
+
+  function openEntryForEdit(domain, key) {
+    if (!CM) {
+      // 罕見的 bundle 載入失敗：退回舊版 textarea 編輯器，至少還能編。
+      const exists = baseValue(domain, key) !== undefined;
+      ensureEditAccess(domain, () => openEditor(domain, key, !exists));
+      return;
+    }
+    state.pendingEdit = true;
+    state.focusEditorOnce = true;
+    state.createKey = null;
+    if (state.view === 'entry' && state.root.domain === domain && state.root.key === key) {
+      state.pendingEdit = false;
+      state.focusEditorOnce = false;
+      setEditing(true);
+      return;
+    }
+    navigate(domain, key);
+  }
+
+  function openNewEntry(domain, key) {
+    const name = String(key == null ? '' : key).trim();
+    if (!name) return;
+    if (/[@|\[\]\n\t]/.test(name)) {
+      showToast('條目名稱不能包含 @、|、[、]');
+      return;
+    }
+    if ([...name].length > 16) {
+      showToast('條目名稱最多 16 個字');
+      return;
+    }
+    if (!CM) {
+      ensureEditAccess(domain, () => openEditor(domain, name, true));
+      return;
+    }
+    state.pendingEdit = true;
+    state.focusEditorOnce = true;
+    state.createKey = name;
+    if (state.view === 'entry' && state.root.domain === domain && state.root.key === name) {
+      state.pendingEdit = false;
+      state.focusEditorOnce = false;
+      if (!state.editing) setEditing(true);
+      else render();
+      return;
+    }
+    navigate(domain, name);
+  }
+
+  function validateDrafts() {
+    const errors = [];
+    const warnings = [];
+    const seen = new Set();
+    const warn = (text) => {
+      if (seen.has(text)) return;
+      seen.add(text);
+      warnings.push(text);
+    };
+    for (const draft of drafts.values()) {
+      const label = draft.key || '（未命名）';
+      if (!String(draft.value).trim()) errors.push(label + '：釋文不能是空的');
+      if (isRedirect(draft.value)) {
+        errors.push(label + '：@ 開頭是系統維護的對照頁，不能直接存成條目');
+      }
+      if (/\t/.test(draft.value)) errors.push(label + '：釋文不能包含 Tab');
+      if (/[\r\n]/.test(draft.value)) warn(label + '：換行會在存檔時轉成空白');
+      if (draft.base === null) {
+        if (!String(draft.key).trim()) errors.push('新條目名稱不能是空的');
+        else if ([...String(draft.key)].length > 16) {
+          errors.push(label + '：條目名稱超過 16 個字');
+        } else if (/[@|\[\]\n\t]/.test(draft.key)) {
+          errors.push(label + '：條目名稱不能包含 @、|、[、]');
+        }
+      }
+      for (const tok of NT.parse(draft.value)) {
+        if (tok.type !== 'ref') continue;
+        if ([...String(tok.inner)].length > 16) {
+          errors.push(label + '：引用「^[' + tok.inner + ']」超過 16 個字');
+          continue;
+        }
+        const res = editorResolve(tok.ref, tok.domain, draft.domain);
+        if (res.status === 'alias-loop') {
+          warn(label + '：引用「' + tok.ref + '」形成別名循環');
+        } else if (res.status !== 'ok') {
+          warn(label + '：引用「' + tok.ref + '」找不到目標');
+        }
+      }
+    }
+    return { errors, warnings };
+  }
+
+  function closeCheckDialog() {
+    if (checkOverlay) checkOverlay.remove();
+    checkOverlay = null;
+  }
+
+  function showSaveProblems(errors, warnings) {
+    closeCheckDialog();
+    const backdrop = el('div', 'edit-backdrop');
+    const panel = el('section', 'edit-panel check-panel');
+    panel.setAttribute('role', 'dialog');
+    panel.setAttribute('aria-modal', 'true');
+
+    const head = el('header', 'edit-head');
+    const titles = el('div');
+    titles.append(el('div', 'edit-kicker', '存檔檢查'));
+    titles.append(el('h2', 'edit-title', '還有 ' + errors.length + ' 項要修正'));
+    head.append(titles);
+    const close = el('button', 'edit-close', '×');
+    close.type = 'button';
+    close.setAttribute('aria-label', '關閉');
+    close.addEventListener('click', closeCheckDialog);
+    head.append(close);
+    panel.append(head);
+
+    const list = el('div', 'check-list');
+    for (const line of errors) list.append(el('div', 'check-line is-error', line));
+    if (warnings.length) {
+      list.append(el('div', 'check-subtitle', '提醒'));
+      for (const line of warnings) list.append(el('div', 'check-line', line));
+    }
+    panel.append(list);
+
+    const actions = el('div', 'edit-actions');
+    const done = el('button', 'edit-primary', '回到編輯');
+    done.type = 'button';
+    done.addEventListener('click', closeCheckDialog);
+    actions.append(done);
+    panel.append(actions);
+    backdrop.append(panel);
+    document.body.append(backdrop);
+    checkOverlay = backdrop;
+    backdrop.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') closeCheckDialog();
+    });
+    done.focus();
+  }
+
+  async function persistDirtyQuiet(domainIds) {
+    const written = [];
+    const pending = [];
+    for (const id of domainIds) {
+      if (!dirtyDomains.has(id)) continue;
+      const session = fileHandles.get(id);
+      if (session) {
+        try {
+          const permission = await session.handle.queryPermission({ mode: 'readwrite' });
+          if (permission === 'granted') {
+            await saveFileSession(id);
+            clearDirty(id);
+            written.push(id);
+          } else {
+            pending.push(id);
+          }
+        } catch (e) {
+          pending.push(id);
+        }
+        continue;
+      }
+      if (/^https?:$/.test(location.protocol)) {
+        try {
+          await saveViaServer(id, serializeDomain(id));
+          clearDirty(id);
+          written.push(id);
+        } catch (e) {
+          pending.push(id);
+        }
+        continue;
+      }
+      pending.push(id);
+    }
+    updateStats();
+    return { written, pending };
+  }
+
+  async function saveDrafts() {
+    if (saveBusy) return false;
+    if (!drafts.size) {
+      showToast('沒有未套用的變更');
+      return false;
+    }
+    const check = validateDrafts();
+    if (check.errors.length) {
+      showSaveProblems(check.errors, check.warnings);
+      return false;
+    }
+
+    saveBusy = true;
+    updateSaveUi();
+    const list = [...drafts.values()];
+    const affected = new Set(list.map((draft) => draft.domain));
+    const cursor = entryController ? entryController.view.state.selection.main.head : null;
+
+    for (const draft of list) {
+      setDomainEntry(
+        draft.domain,
+        draft.key,
+        String(draft.value).replace(/\r?\n/g, ' ').trim()
+      );
+    }
+    for (const id of affected) markDirty(id);
+    drafts.clear();
+    draftSeq = 0;
+    lastDraftCount = 0;
+    state.createKey = null;
+
+    rebuildAllIndex();
+    fillSubjectSelect();
+    updateRankNav();
+    updateSaveUi();
+    closeOrphanPanel();
+    render();
+    if (cursor != null && entryController) {
+      entryController.focus();
+      const max = entryController.view.state.doc.length;
+      entryController.view.dispatch({ selection: { anchor: Math.min(cursor, max) } });
+    }
+
+    const persisted = await persistDirtyQuiet(affected);
+    saveBusy = false;
+    updateSaveUi();
+
+    let orphanTotal = 0;
+    for (const id of affected) orphanTotal += countOrphans(id);
+    const bits = ['已套用 ' + list.length + ' 個條目', '已重建索引'];
+    if (check.warnings.length) bits.push(check.warnings.length + ' 個提醒');
+    if (orphanTotal) bits.push(orphanTotal + ' 個孤兒');
+    if (persisted.written.length) bits.push('已寫入 ' + persisted.written.length + ' 科');
+    if (persisted.pending.length) bits.push(persisted.pending.length + ' 科待離開時儲存');
+    showToast(bits.join(' · '));
+    updateOrphanButton();
+    refreshOrphanPanel();
+    return true;
+  }
+
+  /* ---------- 孤兒節點 ---------- */
+
+  function computeOrphans(domainId) {
+    const domain = state.index.byId.get(domainId);
+    if (!domain) return [];
+    const out = [];
+    for (const [key, value] of domain.entries) {
+      if (key === '_' || isRedirect(value)) continue;
+      if (!state.index.links.incoming.has(domainId + ':' + key)) {
+        out.push({ domain: domainId, key, value });
+      }
+    }
+    return out.sort((a, b) => a.key.localeCompare(b.key, 'zh-Hant'));
+  }
+
+  function computeDangling(domainIds) {
+    const found = new Map();
+    for (const domainId of domainIds) {
+      const domain = state.index.byId.get(domainId);
+      if (!domain) continue;
+      for (const [key, value] of domain.entries) {
+        if (key === '_' || isRedirect(value)) continue;
+        for (const tok of NT.parse(value)) {
+          if (tok.type !== 'ref') continue;
+          const res = editorResolve(tok.ref, tok.domain, domainId);
+          if (res.status === 'ok') continue;
+          const targetDomain = tok.domain || domainId;
+          const id = targetDomain + ':' + tok.ref;
+          let item = found.get(id);
+          if (!item) {
+            item = { domain: targetDomain, key: tok.ref, sources: [] };
+            found.set(id, item);
+          }
+          if (!item.sources.includes(key) && item.sources.length < 3) item.sources.push(key);
+        }
+      }
+    }
+    return [...found.values()].sort((a, b) => a.key.localeCompare(b.key, 'zh-Hant'));
+  }
+
+  function refreshOrphanPanel() {
+    if (!orphanPanel) return;
+    const body = orphanPanel.querySelector('.orphan-body');
+    if (!body) return;
+    const scopeAll = orphanPanel.dataset.scope === 'all';
+    const scope = scopeAll ? domains.map((domain) => domain.id) : [state.root.domain];
+    const orphans = [];
+    for (const id of scope) orphans.push(...computeOrphans(id));
+    const dangling = computeDangling(scope);
+    const headCount = orphanPanel.querySelector('.orphan-count');
+    if (headCount) {
+      headCount.textContent = '孤兒 ' + orphans.length + ' · 缺目標 ' + dangling.length;
+    }
+
+    body.textContent = '';
+
+    const orphanTitle = el('div', 'orphan-section-title', '沒有被任何條目引用（含首頁）');
+    body.append(orphanTitle);
+    if (!orphans.length) {
+      body.append(el('div', 'orphan-empty', '這個範圍沒有孤兒條目。'));
+    } else {
+      for (const item of orphans) {
+        const btn = el('button', 'orphan-item');
+        btn.type = 'button';
+        const head = el('span', 'orphan-item-head');
+        head.append(el('span', 'orphan-item-key', disp(item.key)));
+        if (scopeAll) head.append(el('span', 'orphan-item-domain', disp(domainName(item.domain))));
+        btn.append(head);
+        btn.append(el('span', 'orphan-item-preview', preview(item.value)));
+        btn.title = '開啟並編輯「' + item.key + '」';
+        btn.addEventListener('click', () => {
+          closeOrphanPanel();
+          openEntryForEdit(item.domain, item.key);
+        });
+        body.append(btn);
+      }
+    }
+
+    const missingTitle = el(
+      'div',
+      'orphan-section-title',
+      '缺目標引用（' + dangling.length + '）'
+    );
+    body.append(missingTitle);
+    if (!dangling.length) {
+      body.append(el('div', 'orphan-empty', '沒有找不到目標的引用。'));
+    } else {
+      for (const item of dangling) {
+        const loaded = state.index.byId.has(item.domain);
+        const btn = el('button', 'orphan-item is-missing');
+        btn.type = 'button';
+        const head = el('span', 'orphan-item-head');
+        head.append(el('span', 'orphan-item-key', disp(item.key)));
+        head.append(el('span', 'orphan-item-domain', loaded ? '建立' : '未載入'));
+        btn.append(head);
+        btn.append(
+          el('span', 'orphan-item-preview', '來自：' + item.sources.map(disp).join('、'))
+        );
+        btn.disabled = !loaded;
+        btn.title = loaded
+          ? '建立「' + item.key + '」並開始編寫'
+          : '目標科目尚未載入';
+        if (loaded) {
+          btn.addEventListener('click', () => {
+            closeOrphanPanel();
+            openNewEntry(item.domain, item.key);
+          });
+        }
+        body.append(btn);
+      }
+    }
+  }
+
+  function closeOrphanPanel() {
+    if (orphanPanel) orphanPanel.remove();
+    orphanPanel = null;
+  }
+
+  function toggleOrphanPanel() {
+    if (orphanPanel) {
+      closeOrphanPanel();
+      return;
+    }
+    const panel = el('section', 'orphan-panel');
+    panel.setAttribute('aria-label', '孤兒節點');
+    const head = el('header', 'orphan-head');
+    head.append(el('strong', 'orphan-title', '孤兒節點'));
+    head.append(el('span', 'orphan-count', ''));
+    const allLabel = el('label', 'orphan-scope');
+    const all = document.createElement('input');
+    all.type = 'checkbox';
+    all.addEventListener('change', () => {
+      panel.dataset.scope = all.checked ? 'all' : 'current';
+      refreshOrphanPanel();
+    });
+    allLabel.append(all, document.createTextNode('全部科目'));
+    head.append(allLabel);
+    const close = el('button', 'orphan-close', '×');
+    close.type = 'button';
+    close.setAttribute('aria-label', '關閉孤兒節點');
+    close.addEventListener('click', closeOrphanPanel);
+    head.append(close);
+    panel.append(head);
+    const body = el('div', 'orphan-body');
+    panel.append(body);
+    document.body.append(panel);
+    orphanPanel = panel;
+    panel.dataset.scope = 'current';
+    refreshOrphanPanel();
+  }
+
   addTermBtn.addEventListener('click', () => {
     const selected = pendingSelection;
     hideAddTerm();
     if (!selected) return;
-    ensureEditAccess(selected.domain, () => {
-      openEditor(selected.domain, selected.key, !selected.exists);
-    });
+    if (selected.exists) openEntryForEdit(selected.domain, selected.key);
+    else openNewEntry(selected.domain, selected.key);
   });
 
   reader.addEventListener('mousedown', hideAddTerm);
@@ -1548,6 +2298,13 @@
     if (routeApplied && changed) {
       state.expanded.clear();
       state.focusPath = null;
+    }
+    if (state.createKey && (route.view !== 'entry' || route.key !== state.createKey)) {
+      state.createKey = null;
+    }
+    if (route.view !== 'entry') {
+      state.focusEditorOnce = false;
+      closeOrphanPanel();
     }
 
     // 反鏈接只對「來源條目」有效；一旦路由離開它，就取消標記。
@@ -1920,6 +2677,10 @@
     const scrollY = window.scrollY;
     const backlinkScroll = state.backlink && state.backlink.scroll ? state.backlink : null;
     const recenterGraph = state.view === 'graph' && state.graph.recenter;
+    if (entryController) {
+      entryController.destroy();
+      entryController = null;
+    }
     subjectSelect.value =
       state.view === 'index'
         ? state.indexDomain === 'all'
@@ -1927,10 +2688,17 @@
           : state.indexDomain
         : state.root.domain;
     reader.textContent = '';
+    reader.classList.toggle('is-focusing', !!state.focusPath && state.view === 'entry');
     if (state.view !== 'graph') hideGraphTip();
+    if (state.view !== 'entry') {
+      document.body.classList.remove('is-editing-entry');
+      closeOrphanPanel();
+    }
     updateRankNav();
     renderReadHistory();
     updateDirtyUi();
+    updateSaveUi();
+    updateOrphanButton();
     viewSwitch.hidden = state.view === 'index';
     textViewBtn.classList.toggle('is-active', state.view === 'entry');
     glyphViewBtn.classList.toggle('is-active', state.view === 'graph');
@@ -1943,7 +2711,8 @@
     else if (state.view === 'graph') renderGraph();
     else renderEntry(opts);
 
-    applyFocus();
+    if (!entryController) applyFocus();
+    if (orphanPanel) refreshOrphanPanel();
     requestAnimationFrame(() => {
       if (recenterGraph) {
         state.graph.recenter = false;
@@ -2065,34 +2834,84 @@
   }
 
   function renderEntry(options) {
-    const res = NT.resolve(state.index, state.root.key, state.root.domain);
-    if (res.status !== 'ok') {
+    const opts = options || {};
+    if (state.pendingEdit) {
+      state.editing = true;
+      state.pendingEdit = false;
+    }
+    if (state.createKey && state.createKey !== state.root.key) state.createKey = null;
+    const creating = state.createKey === state.root.key;
+
+    const res = editorResolve(state.root.key, state.root.domain, null);
+    if (res.status !== 'ok' && !creating) {
+      if (state.editing) {
+        state.editing = false;
+        document.body.classList.remove('is-editing-entry');
+        updateSaveUi();
+      }
       reader.append(emptyState(res));
       return;
     }
 
     // @ 轉址頁不直接顯示；直接換到它指向的條目。
-    if (res.domain !== state.root.domain || res.key !== state.root.key) {
+    if (res.status === 'ok' && (res.domain !== state.root.domain || res.key !== state.root.key)) {
       navigate(res.domain, res.key);
       return;
     }
 
-    const article = el('article', 'entry');
+    const value = res.status === 'ok' ? res.value : valueFor(state.root.domain, state.root.key) || '';
+    const article = el('article', 'entry' + (state.editing ? ' is-editing' : ''));
+    article.dataset.domain = state.root.domain;
+    article.dataset.key = state.root.key;
+    document.body.classList.toggle('is-editing-entry', !!state.editing);
     const head = el('header', 'entry-head');
     head.append(el('div', 'entry-kicker', disp(domainName(state.root.domain))));
     const titleRow = el('div', 'entry-title-row');
     titleRow.append(el('h1', 'entry-title', disp(state.root.key === '_' ? '首頁' : state.root.key)));
-    const backlinks = backlinksFor(res.domain + ':' + res.key);
+
+    const targetId = state.root.domain + ':' + state.root.key;
+    const backlinks = backlinksFor(targetId);
     if (backlinks.length) titleRow.append(renderBacklinks(backlinks, res));
+
+    const isOrphan = !state.index.links.incoming.has(targetId);
+    if (state.editing && state.root.key !== '_' && !isRedirect(value) && isOrphan) {
+      const orphan = el('button', 'entry-orphan', '孤兒');
+      orphan.type = 'button';
+      orphan.title = '這個條目沒有被任何條目引用；查看孤兒節點清單';
+      orphan.addEventListener('click', () => {
+        if (!orphanPanel) toggleOrphanPanel();
+        else refreshOrphanPanel();
+      });
+      titleRow.append(orphan);
+    }
+
     head.append(titleRow);
     article.append(head);
 
-    const ancestors = new Set([res.domain + ':' + res.key]);
-    article.append(renderDoc(res.value, 0, '', ancestors, false, res.domain));
+    const mounted = mountEntryEditor(article, value);
+    if (!mounted) {
+      const ancestors = new Set([targetId]);
+      article.append(renderDoc(value, 0, '', ancestors, false, state.root.domain));
+    }
     reader.append(article);
 
-    if (options.focusPath) {
-      const btn = reader.querySelector('.nt-ref[data-path="' + options.focusPath + '"]');
+    if (state.editing && entryController && (state.focusEditorOnce || creating)) {
+      state.focusEditorOnce = false;
+      const controller = entryController;
+      requestAnimationFrame(() => {
+        if (entryController !== controller) return;
+        controller.focus();
+        const len = controller.view.state.doc.length;
+        controller.view.dispatch({ selection: { anchor: creating ? len : 0 } });
+      });
+    }
+
+    if (opts.focusPath && entryController) {
+      requestAnimationFrame(() => {
+        if (entryController) entryController.scrollToPath(opts.focusPath);
+      });
+    } else if (opts.focusPath) {
+      const btn = reader.querySelector('.nt-ref[data-path="' + opts.focusPath + '"]');
       if (btn) btn.focus({ preventScroll: true });
     }
   }
@@ -3231,10 +4050,16 @@
   function handleSettingsChange(kind) {
     if (kind !== 'sim') return;
     // 顯示模式換了，搜尋索引也要換成對應的簡體形式；畫面重繪。
-    // 簡體顯示時不允許用畫面選取新增詞目（選到的字不是 TSV 原文）。
+    // 簡體顯示時不允許編輯（選到的字不是 TSV 原文）。
     hideAddTerm();
+    if (SETTINGS && SETTINGS.simModeOf() !== 0 && state.editing) {
+      state.editing = false;
+      document.body.classList.remove('is-editing-entry');
+      closeOrphanPanel();
+    }
     rebuildSearchEntries();
     updateStats();
+    updateSaveUi();
     if (!document.body.classList.contains('is-booting')) render();
   }
 
@@ -3345,21 +4170,41 @@
   });
 
   $('#indexBtn').addEventListener('click', () => navigateIndex());
-  dirtyBtn.addEventListener('click', () => showDirtyDialog({ leave: false }));
+  dirtyBtn.addEventListener('click', () => {
+    if (drafts.size) {
+      saveDrafts();
+      return;
+    }
+    showDirtyDialog({ leave: false });
+  });
   leaveBtn.addEventListener('click', leaveSystem);
 
   window.addEventListener('beforeunload', (event) => {
-    if (!dirtyDomains.size) return;
+    if (!dirtyDomains.size && !drafts.size) return;
     event.preventDefault();
     event.returnValue = '';
   });
 
   textViewBtn.addEventListener('click', () => switchView('text'));
   glyphViewBtn.addEventListener('click', () => switchView('graph'));
+  editBtn.addEventListener('click', () => setEditing(!state.editing));
+  saveBtn.addEventListener('click', () => {
+    saveDrafts();
+  });
+  orphanBtn.addEventListener('click', toggleOrphanPanel);
 
   document.addEventListener('keydown', (e) => {
     if (SETTINGS && SETTINGS.isOpen()) return;
-    const typing = /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName);
+    const active = document.activeElement;
+    const typing =
+      /^(INPUT|SELECT|TEXTAREA)$/.test(active.tagName) ||
+      active.isContentEditable ||
+      !!active.closest('.cm-editor');
+    if (e.key === 'Escape' && orphanPanel) {
+      e.preventDefault();
+      closeOrphanPanel();
+      return;
+    }
     if (e.key === '/' && !typing) {
       e.preventDefault();
       searchInput.focus();
@@ -3390,6 +4235,19 @@
   });
 
   renderBootCatalog();
+
+  // 自動測試用；只有 ?test=1 才暴露，不影響一般使用。
+  if (query.get('test') === '1') {
+    window.__offtextTest = {
+      openNewEntry,
+      openEntryForEdit,
+      setEditing,
+      saveDrafts,
+      state,
+      drafts: () => [...drafts.values()],
+      validateDrafts,
+    };
+  }
 
   const dataParam = query.get('data');
   if (dataParam && /^https?:$/.test(location.protocol)) {

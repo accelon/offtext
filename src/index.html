@@ -79,6 +79,10 @@
       <div id="searchResults" class="search-results" role="listbox" aria-label="搜尋結果" hidden></div>
     </div>
 
+    <button id="editBtn" class="ghost edit-mode-btn" type="button" title="在目前條目上直接編輯（游標留在原處）">編輯</button>
+    <button id="orphanBtn" class="ghost orphan-btn" type="button" hidden title="列出沒有反鏈接的條目；點選後直接編寫">孤兒</button>
+    <button id="saveBtn" class="save-btn" type="button" hidden title="檢查、重建索引，並在可用時寫回 TSV">存檔（0）</button>
+
     <div id="viewSwitch" class="view-switch" role="group" aria-label="檢視模式">
       <button id="textViewBtn" type="button" aria-pressed="true">文字</button>
       <button id="glyphViewBtn" type="button" aria-pressed="false">圖譜</button>
@@ -162,6 +166,7 @@
   <script src="nestedtext-simplified.js"></script>
   <script src="nestedtext-settings.js"></script>
   <script src="nestedtext-core.js"></script>
+  <script src="offtext-cm.js"></script>
   <script src="nestedtext.js"></script>
 </body>
 </html>

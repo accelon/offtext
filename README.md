@@ -4,7 +4,10 @@
 單欄流式版面，沒有固定側欄；科目用頂欄選單切換，索引頁與搜尋涵蓋所有科目。
 200 字以內的 value 在點擊處展開；引用是彩色文字加實線底線，沒有底色、沒有箭頭。
 頂欄最右邊的扳手開啟設置頁，可切換亮底／暗底／護眼，以及保持原樣／無損簡體／強制簡體三態文字顯示（只影響畫面，不改資料）。
-資料放在 `data/`，目前有 16 個科目：近代中國史、中國古代史、世界史、現代化歷程、化學、生物、數學、物理、地球科學、國語文、資訊科技、公民與法治、藝術、AI 術語、經濟學與財商。系統不預先打包 `data.js`；啟動頁會列出 `data/` 中的 TSV 供勾選（HTTP），`file://` 仍用本機選檔。編輯先存在記憶體、toolbar 標示未存檔，按「離開」時才要求寫入權限。
+編輯器已改為 **CodeMirror 6**：閱讀與編輯共用同一個 `EditorView`，閱讀只是 `readOnly`，游標仍在；巢狀引用展開時在 widget 內再掛一個唯讀 CM6 view，兩者共用同一組裝飾與解析規則。編輯中的改動先存在草稿記憶體，右上角「存檔（N）」才檢查、重建索引，並在可用時寫回 TSV。
+資料放在 `data/`，目前有 16 個科目：近代中國史、中國古代史、世界史、現代化歷程、化學、生物、數學、物理、地球科學、國語文、資訊科技、公民與法治、藝術、AI 術語、經濟學與財商。系統不預先打包 `data.js`；啟動頁會列出 `data/` 中的 TSV 供勾選（HTTP），`file://` 仍用本機選檔。
+
+> 技術決策：沒有再加 React／Vue。CM6 本身已是 state／view 架構，外加一層框架只會多一次 render；`src/editor/` 以 host callback 與 app 解耦，之後要包框架也只需要薄薄一層。閱讀與編輯共用 view，巢狀展開只對「已展開」的引用建立唯讀 CM6 view，收合時只有 widget。
 
 ## 目錄結構
 
@@ -35,16 +38,23 @@
 ├─ subject-questionnaire.md 新科目約束條件問卷（給人填）
 ├─ src/                     原始碼
 │  ├─ index.html            頁面骨架、設置頁
-│  ├─ nestedtext.css        版面、深度色相、亮／暗／護眼主題
+│  ├─ nestedtext.css        版面、深度色相、亮／暗／護眼主題、CM6 樣式
 │  ├─ nestedtext-core.js    解析、查表、別名、循環、鏈結／反鏈接／各科排行（瀏覽器與 Node 共用）
-│  ├─ nestedtext.js         渲染、索引、搜尋、科目切換、路由
+│  ├─ nestedtext.js         路由、索引、搜尋、科目切換、草稿／存檔／孤兒節點
 │  ├─ nestedtext-settings.js 設置頁：主題與繁簡三態
 │  ├─ nestedtext-simplified.js 無損／強制簡體轉換
 │  ├─ simplified-data.js    繁簡對照表（GENERATED）
+│  ├─ editor/               CodeMirror 6 原始碼（ESM）
+│  │  ├─ index.js           同一個 EditorView 的閱讀／編輯、巢狀 widget、補全、括號規則
+│  │  └─ parse.js           帶位置的 offtext 解析
+│  ├─ offtext-cm.js         CM6 bundle（GENERATED，IIFE，file:// 可載入）
 │  └─ tools/                建置、測試、除錯腳本
+├─ package.json             CM6／esbuild 相依與 npm scripts
+├─ THIRD_PARTY.md           第三方套件授權
 └─ build/                   建置成果（可整個刪掉重建）
    ├─ index.html            直接開這個
    ├─ nestedtext*.js/css
+   ├─ offtext-cm.js         CM6 bundle（GENERATED）
    ├─ simplified-data.js
    ├─ tsv-manifest.js       啟動頁 TSV 清單（GENERATED，只列檔名）
    └─ shots/                展示截圖
@@ -55,27 +65,30 @@
 ## 快速開始
 
 ```powershell
-node src/tools/build.mjs
+npm install
+npm run build          # = build:editor（esbuild）→ build（複製前端檔）
 node src/tools/serve.mjs --port 8123
 ```
 
-HTTP 模式開 [http://127.0.0.1:8123/build/index.html](http://127.0.0.1:8123/build/index.html)（或 `http://127.0.0.1:8123/`）。啟動頁會列出 `data/` 中所有 TSV，勾選後按「開啟選取的 TSV」即可；不用每次開檔案選擇器。`serve.mjs` 同時提供 `POST /api/tsv/<檔名>`，編輯後按「離開」可直接寫回 `data/`。
+只改 CSS／`nestedtext.js` 時，`node src/tools/build.mjs` 即可；改 `src/editor/*.js` 時要先跑 `npm run build:editor`。`src/offtext-cm.js` 是產物，但保留在版本庫，讓 `file://` 直接開 `src/index.html` 也能運作。
 
-`file://` 仍然可用：直接開 [build/index.html](build/index.html)，啟動頁會顯示同一份 TSV 清單供對照，但受瀏覽器限制不能自動讀 `data/`，請按「選擇本機 TSV…」一次選取多個檔案。編輯同樣先存在記憶體；按「離開」儲存時才會要求該科 TSV 的寫入權限。
+HTTP 模式開 [http://127.0.0.1:8123/build/index.html](http://127.0.0.1:8123/build/index.html)（或 `http://127.0.0.1:8123/`）。啟動頁會列出 `data/` 中所有 TSV，依**文科、理科、進階**分組（由每個 TSV meta 的 `group` 決定），勾選後按「開啟選取的 TSV」即可；不用每次開檔案選擇器。`serve.mjs` 同時提供 `POST /api/tsv/<檔名>`，按「存檔」時會直接寫回 `data/`；沒有 API 時只套用＋重建索引，等「離開」再寫檔。
+
+`file://` 仍然可用：直接開 [build/index.html](build/index.html)，啟動頁會顯示同一份 TSV 清單供對照，但受瀏覽器限制不能自動讀 `data/`，請按「選擇本機 TSV…」一次選取多個檔案。編輯同樣先存在草稿；按「存檔」只套用＋重建索引並標成未存檔，按「離開」儲存時才會要求該科 TSV 的寫入權限。
 
 `build/` 只複製前端程式，不產生 `data.js`；`build/tsv-manifest.js` 只列 `data/` 的檔名與科目名稱，不含內容。改過 `src/` 後重跑建置；改過 `data/*.tsv` 則重新載入頁面即可。
 
 ## 啟動與未存檔
 
-![HTTP 啟動頁：勾選 data/ 中的 TSV](build/shots/shot-boot-http.png)
+![啟動頁：文科、理科、進階三組](build/shots/shot-boot-groups.png)
 
-編輯後，toolbar 會顯示目前科目的「未存檔」，科目下拉也會在該科後面加 `●`：
+編輯中的改動先形成草稿，右上出現「存檔（N）」；按存檔才套用、檢查並重建索引。若沒有寫入 API／權限，toolbar 會顯示目前科目的「未存檔」，科目下拉也會在該科後面加 `●`：
 
-![toolbar 顯示近代中國史未存檔](build/shots/shot-dirty-badge.png)
+![CM6 編輯態：存檔（N）與未存檔提示](build/shots/cm-dirty.png)
 
-按右上角離開圖示（扳手左邊）會列出未存檔科目，儲存時才要求寫入權限：
+按右上角離開圖示（扳手左邊）會先確認草稿；有未存檔科目時再列出，儲存時才要求寫入權限：
 
-![離開前儲存未存檔科目](build/shots/shot-leave-dialog.png)
+![離開前儲存未存檔科目](build/shots/cm-leave.png)
 
 
 ## 科目
@@ -131,7 +144,7 @@ http://127.0.0.1:8123/build/index.html?data=chemistry,modern-chinese-history
 
 - `?data=` 用逗號分隔科目 id，對應 `data/<id>.tsv`；會依序 fetch、建立索引。
 - 頁面在 `/build/` 時會自動嘗試 `data/` 與 `../data/`；也可用 `?dataBase=/data` 指定。
-- HTTP 模式沒有檔案 handle，但**可以編輯**：修改先存在記憶體、toolbar 顯示未存檔；按「離開」儲存時走 `POST /api/tsv/`（若是一般靜態伺服器沒有這個 API，會退回「另存新檔」）。
+- HTTP 模式沒有檔案 handle，但**可以編輯**：CM6 改動先存在草稿，按「存檔」才檢查、重建索引並走 `POST /api/tsv/` 寫回；若是一般靜態伺服器沒有這個 API，只會標成未存檔，按「離開」時再退回「另存新檔」。
 - `?data=` 只在 http／https 有效；`file://` 會提示改用檔案選擇器。
 
 ![HTTP 模式：由 URL 載入 chemistry、modern-chinese-history](build/shots/shot-http.png)
@@ -139,7 +152,7 @@ http://127.0.0.1:8123/build/index.html?data=chemistry,modern-chinese-history
 ## 部署到 shutonggui.cn/offtext/
 
 ```powershell
-node src/tools/build.mjs
+npm run build
 node src/tools/deploy-offtext.mjs --check   # 只檢查遠端連線與目錄
 node src/tools/deploy-offtext.mjs           # 上傳 build/ 靜態檔與 data/*.tsv
 ```
@@ -148,7 +161,7 @@ node src/tools/deploy-offtext.mjs           # 上傳 build/ 靜態檔與 data/*.
 - 連線沿用 `D:\2026\adb-converter\.local\server.env` 與 `.local/hostkey.txt`（PuTTY `pscp`／`plink`）；帳密不會被印出。
 - 先傳到 `offtext.new`，完整後再換上，舊版留在 `offtext.prev`。
 - 部署後會自動從 HTTPS 驗證首頁、manifest 與一份 TSV。
-- 線上站是 Apache 靜態站：閱讀、搜尋、圖譜都正常；編輯先存在記憶體，但按「離開」儲存時沒有 `POST /api/tsv/`，會退回瀏覽器的「另存新檔」。要線上寫回需要另外加 CGI／PHP 端點。
+- 線上站是 Apache 靜態站：閱讀、搜尋、圖譜都正常；CM6 編輯可用，按「存檔」會套用變更並重建索引，但沒有 `POST /api/tsv/`，會標成未存檔；按「離開」時再退回瀏覽器的「另存新檔」。要線上寫回需要另外加 CGI／PHP 端點。
 
 ![線上 offtext](build/shots/shot-live.png)
 
@@ -193,13 +206,20 @@ node src/tools/deploy-offtext.mjs           # 上傳 build/ 靜態檔與 data/*.
 - 圖譜節點：4 字以內一行，5 字起自動換行（最多 3 行），半徑最小約 18px、一般樞紐最大約 46px；長英文詞優先依複合詞尾換行，不把單字切一半。
 - 圖譜設定是半透明浮窗，浮在畫布上、可收合成一行（狀態記在 `localStorage['offtext.graphPanel.v1']`）；收合後圖譜可以佔滿整個畫布。
 - 頂欄三個單科排行下拉：**重要**＝順鏈多（重點節點）、**核心**＝逆鏈多、**樞紐**＝順鏈數 × 逆鏈數最大；只在目前科目內排名，各取該科前 12 名。下拉只顯示詞目，第一筆不再重複顯示「重要／核心／樞紐」；鏈結數放在 `title` hover hint（例如「順鏈 5」）。排行在 `NT.buildIndex()` 預先算好；選一個會直接開該條目（圖譜模式下以它為新起點）。索引「全部」時沒有單一科目，三個下拉會停用。
-- 頂欄精簡：移除品牌字樣與「200 字內嵌」模式選單，搜尋框縮小；保留科目、三個排行、閱讀歷史、文字／圖譜、索引。
+- 頂欄精簡：移除品牌字樣與「200 字內嵌」模式選單，搜尋框縮小；保留科目、三個排行、閱讀歷史、文字／圖譜、索引，新增編輯／存檔／孤兒。
 - 閱讀歷史：頂欄下拉保留最近 15 筆實際開啟的條目，最新的一筆排最前，重複閱讀會移到最前；存在瀏覽器 `localStorage`。選到未載入科目的舊紀錄時，會開「載入其他 TSV」視窗。
-- 編輯詞目：在正文選取未標記名詞後按「＋ 新增詞目」。編輯**先存在記憶體**，toolbar 會顯示「● 未存檔」、科目下拉也會標 `●`；按右上角「離開」時才要求寫入權限並寫回 TSV。編輯器左側可過濾／插入現有名詞；之後在本科其他內文推荐可標記處，勾選確認即自動加 `^[...]`（同樣先存記憶體）。
-- 缺科引用：只載入部分科目時，點到未載入科目的詞目（例如只開 `fq.tsv` 後點「資產配置」）會開「載入其他 TSV」視窗；加入後保留現有科目、重建索引，並直接跳到目標。載入只讀，編輯同樣先存記憶體。
+- 編輯詞目：正文選取未標記名詞後按「＋ 新增詞目」；條目頁右上「編輯」直接切到同一窗區的 CM6 編輯態（不再彈出 textarea）。閱讀／編輯共用同一個 EditorView，游標位置保留；閱讀只是 `readOnly`，游標仍在。`^` 會自動補成 `^[]`，游標停在括號內並列出所有可插入條目，打字即時過濾；游標移出 `^[...]` 時控制代碼隱藏、只留裝飾文字，移入才顯示原始碼。刪左括號會連右括號一起刪；夾文（引用／條目名稱）最多 16 個字。
+- 編輯草稿：打字只更新記憶體草稿，**不重建索引、不重算反鏈接**；右上「存檔（N）」才檢查、重建索引，HTTP 有 API 時直接寫回，`file://` 或靜態站則標成未存檔，按「離開」時才要求寫入權限。未按存檔直接離開會先確認，可先存檔再離開。
+- 孤兒節點：編輯態的「孤兒 N」列出本科沒有反鏈接的條目；點一項直接開該條目繼續編寫。同一面板也列「缺目標引用」，可直接建立新條目。
+- 缺科引用：只載入部分科目時，點到未載入科目的詞目（例如只開 `fq.tsv` 後點「資產配置」）會開「載入其他 TSV」視窗；加入後保留現有科目、重建索引，並直接跳到目標。載入只讀，編輯同樣先存草稿。
 - 離開系統：toolbar 的離開圖示（在扳手左邊）會列出未存檔科目；可「儲存並離開」或「不儲存離開」。直接關閉分頁時瀏覽器會警告，但不會自動儲存；請用離開按鈕。
 - 文字／圖譜快速切換：頂欄「文字｜圖譜」 segmented control，保留目前條目；按 `g` 也可在兩者間切換（索引頁不適用）。
 - 單欄流式版面：桌面最大 760px、手機全寬。
+
+![CM6 行內巢狀：同一個 EditorView 內展開，第二層也是 CM6](build/shots/cm-expanded.png)
+
+![CM6 區塊巢狀：block widget 內再展開一層，兩層共用同一組裝飾規則](build/shots/cm-block.png)
+
 - 設置頁：頂欄最右邊的扳手圖示開啟，可切 **亮底／暗底／護眼** 三種主題，以及 **保持原樣／無損簡體／強制簡體** 三態文字顯示。選擇存在 `localStorage`（`offtext.theme.v1`、`offtext.simmode.v1`），重新載入仍保留；沒有選過主題時跟隨系統。文字轉換只影響畫面，TSV、索引與搜尋原文都不變。
 
 ## 設置頁
@@ -251,13 +271,14 @@ node src/tools/deploy-offtext.mjs           # 上傳 build/ 靜態檔與 data/*.
 
 ## 資料健檢
 
-`node src/tools/audit.mjs` 對現有 1,818 個內容條目、2,165 個引用（另有 222 條 `@` 對照頁，不列入統計）跑出來的結果：
+`node src/tools/audit.mjs` 對現有 1,818 個內容條目、2,567 個引用（另有 222 條 `@` 對照頁，不列入統計）跑出來的結果：
 
 | 指標 | 數值 | 意義 |
 | --- | --- | --- |
-| 引用圖中會回到自己的條目 | **401 / 1,818** | 定義互相引用是常態 |
-| 首頁可達的條目 | 近代中國史 35/141、中國古代史 33/99、世界史 19/112、現代化歷程 10/101、化學 41/91、生物 23/106、數學 10/87、物理 19/82、地球科學 39/105、國語文 42/140、資訊科技 13/112、公民與法治 18/109、藝術 22/91、AI 51/193、經濟 36/136、財商 29/113 | 首頁只是入口；索引與搜尋才是主要導覽 |
+| 引用圖中會回到自己的條目 | **556 / 1,818** | 定義互相引用是常態 |
+| 首頁可達的條目 | 近代中國史 35/141、中國古代史 43/99、世界史 29/112、現代化歷程 17/101、化學 41/91、生物 23/106、數學 10/87、物理 19/82、地球科學 40/105、國語文 43/140、資訊科技 22/112、公民與法治 25/109、藝術 29/91、AI 51/193、經濟 36/136、財商 29/113 | 首頁只是入口；索引與搜尋才是主要導覽 |
 | 解析不到的引用名稱 | 0 個 | 十六科內容與對照頁全部指向存在的條目 |
+| 沒被任何條目引用的孤島 | 756 / 1,818 | 多為人物、地名與單一名詞，靠索引與搜尋補足 |
 | 壞掉的別名 | 0 個 | 舊版的 `agi`、`dice`、`chatmodel` 等別名都已補上 |
 
 AI 術語改版時一併修掉舊版的 11 個斷鏈與 4 個壞別名，並清掉 `gen`、`generization`、`linearalgrebra` 等拼寫錯誤的舊 key。
@@ -267,16 +288,16 @@ AI 術語改版時一併修掉舊版的 11 個斷鏈與 4 個壞別名，並清�
 ## 已知限制
 
 - 展開狀態只存在記憶體，沒有寫進 URL；分享連結只會還原到條目，不會還原展開樹。
-- 每次點擊都整頁重繪。目前 1,000 餘條仍很輕，條目上萬或展開樹很大時需要局部更新。
-- 三層以上的行內展開會疊很多底線，可切到「全部段後」閱讀。
-- TSV 還沒有多行 value 的跳脫規則；目前 value 都必須是單行。
+- 切換條目或存檔仍會重建目前條目的 CM6 view；同一條目內打字只更新 CM6，不重繪整頁、也不重建索引。
+- 行內展開是一塊 inline-block 的唯讀 CM6 view；較長的展開會佔滿一行，內嵌層次以底色與底線表示，不再像舊版一樣讓句子繞著文字流動。
+- TSV 還沒有多行 value 的跳脫規則；目前 value 都必須是單行，CM6 中的換行會在存檔時轉成空白。
 - 顯示名只做「名字 → key」的單向解析；`^[llm]` 會顯示 `llm`、連到「大型語言模型」，不會自動改顯示成中文。
 - 對照頁（value 以 `@` 開頭）只供查表：不進索引與搜尋、不記入閱讀歷史；直接開它的網址會換成目標條目，編輯器也不允許手動修改。
 - 反鏈接只列可見科目的內容條目，不含各科首頁；前 4 筆直接顯示，其餘用 `+N` 下拉，避免水平捲動。
 - 圖譜是靜態佈局，沒有拖曳、縮放或動畫；節點上限 48，密集時只顯示前 48 個並提示降低層數。過長的詞目會軟換行成 1–3 行，完整名稱與釋文看 hover tooltip；canvas 會隨節點數變長，桌面與手機都不使用水平捲動。
-- 編輯需要 Chromium／Edge 的 File System Access API（`file://`）或本專案的 `serve.mjs`（HTTP）。`file://` 第一次儲存時才要求該科寫入權限；存檔直接寫回該 TSV，下一次重新載入要重新選檔。編輯器目前只支援單行純文字 value。
+- 編輯需要 Chromium／Edge；`file://` 用 File System Access API，HTTP 用 `serve.mjs` 的寫回 API。按「存檔」時若已有寫入權限或 API 會直接寫回；否則只套用＋重建索引，等「離開」時才要求權限。
 - HTTP 沒有檔案 handle 時，儲存優先走 `POST /api/tsv/`；若是一般靜態伺服器（沒有這個 API），會退回 `showSaveFilePicker` 另存新檔。多科同時儲存時，權限提示可能要多按幾次。
-- 未存檔只存在這個分頁的記憶體；直接關閉分頁或當掉不會保留。關閉前瀏覽器會警告，但真正的儲存要用右上角「離開」流程。
+- 未套用的草稿與未存檔都只存在這個分頁的記憶體；直接關閉分頁或當掉不會保留。關閉前瀏覽器會警告，真正的儲存要用「存檔」或右上角「離開」流程。
 - 展開形式預設 auto，頂欄不顯示模式選單；需要時用 `?mode=` 覆寫。
 - 無障礙只做了 `aria-expanded`、`aria-controls`、反鏈接 `nav` 標籤與鍵盤操作。
 
@@ -298,10 +319,15 @@ AI 術語改版時一併修掉舊版的 11 個斷鏈與 4 個壞別名，並清�
 | [data/aijargon.tsv](data/aijargon.tsv) | AI 術語 domain |
 | [data/economics.tsv](data/economics.tsv) | 經濟學 domain（宏觀、債務週期、央行與資產配置） |
 | [data/fq.tsv](data/fq.tsv) | 財商 domain（現金流、資產負債、行為偏誤與防詐） |
-| [src/index.html](src/index.html) | 頁面骨架、設置頁 markup |
-| [src/nestedtext.css](src/nestedtext.css) | 版面、深度色相、亮／暗／護眼主題、設置頁 |
+| [src/index.html](src/index.html) | 頁面骨架、設置頁 markup、編輯／存檔／孤兒按鈕 |
+| [src/nestedtext.css](src/nestedtext.css) | 版面、深度色相、亮／暗／護眼主題、CM6／孤兒浮窗樣式 |
 | [src/nestedtext-core.js](src/nestedtext-core.js) | 解析、查表、別名、循環、鏈結／反鏈接／各科排行 |
-| [src/nestedtext.js](src/nestedtext.js) | 渲染、索引、搜尋、科目切換、路由、設置整合 |
+| [src/nestedtext.js](src/nestedtext.js) | 路由、索引、搜尋、草稿／存檔／孤兒節點、CM6 整合 |
+| [src/editor/index.js](src/editor/index.js) | CM6 閱讀／編輯、巢狀 widget、`^` 補全、括號規則 |
+| [src/editor/parse.js](src/editor/parse.js) | 帶位置的 offtext 解析與 16 字計算 |
+| [src/offtext-cm.js](src/offtext-cm.js) | CM6 bundle（GENERATED，IIFE；file:// 可載入） |
+| [package.json](package.json) | CM6／esbuild 相依與 npm scripts |
+| [THIRD_PARTY.md](THIRD_PARTY.md) | 第三方套件與授權 |
 | [src/simplified-data.js](src/simplified-data.js) | 繁簡對照表（GENERATED，來自 accelon26 的 simplified-data.ts） |
 | [src/nestedtext-simplified.js](src/nestedtext-simplified.js) | 無損／強制簡體轉換與搜尋形式 |
 | [src/nestedtext-settings.js](src/nestedtext-settings.js) | 設置頁：主題、文字顯示三態、localStorage |
@@ -310,10 +336,14 @@ AI 術語改版時一併修掉舊版的 11 個斷鏈與 4 個壞別名，並清�
 | [src/tools/live-check.mjs](src/tools/live-check.mjs) | 線上一頁式實測：清單、載入、無 JS 例外 |
 | [src/tools/gen-simplified.mjs](src/tools/gen-simplified.mjs) | 從 accelon26 的 simplified-data.ts 重新產生對照表 |
 | [src/tools/test-simplified.mjs](src/tools/test-simplified.mjs) | 繁簡三態單元測試 |
-| [src/tools/http-test.mjs](src/tools/http-test.mjs) | Edge 實測 HTTP 啟動清單、記憶體編輯、未存檔、離開儲存 |
+| [src/tools/http-test.mjs](src/tools/http-test.mjs) | Edge 實測：HTTP 清單 → CM6 內嵌編輯 → 存檔／重建 → 離開 → 寫回 API |
+| [src/tools/cm-test.mjs](src/tools/cm-test.mjs) | Edge 實測：CM6 閱讀／編輯、巢狀、`^` 補全、刪括號、孤兒、16 字、存檔計數、手機寬度 |
+| [src/tools/cm-file-test.mjs](src/tools/cm-file-test.mjs) | Edge 實測：`file://` 直接載入與編輯（不靠 HTTP／fetch） |
+| [src/tools/cm-block-test.mjs](src/tools/cm-block-test.mjs) | Edge 實測：block widget 巢狀展開與收合 |
 | [src/tools/settings-test.mjs](src/tools/settings-test.mjs) | Edge 實測：扳手、三主題、三態、搜尋、重載、手機寬度 |
 | [src/tools/graph-test.mjs](src/tools/graph-test.mjs) | Edge 實測：圖譜設定浮窗收合、線粗、節點換行、Ctrl 重繪置中、手機寬度 |
 | [src/tools/build.mjs](src/tools/build.mjs) | 建置：複製前端檔、產生 `tsv-manifest.js`，不打包 TSV 內容 |
+| [src/tools/build-editor.mjs](src/tools/build-editor.mjs) | 用 esbuild 把 `src/editor/` 打包成 IIFE `src/offtext-cm.js` |
 | [src/tools/tsv-data.mjs](src/tools/tsv-data.mjs) | Node 端直接讀 TSV，供測試／健檢使用 |
 | [src/tools/test-core.mjs](src/tools/test-core.mjs) | 核心邏輯測試 |
 | [src/tools/click-test.mjs](src/tools/click-test.mjs) | 用 Edge DevTools 協定實際點擊、截圖 |
@@ -327,11 +357,15 @@ AI 術語改版時一併修掉舊版的 11 個斷鏈與 4 個壞別名，並清�
 ## 驗證
 
 ```powershell
-node src/tools/build.mjs
+npm install
+npm run build                           # build:editor → build
 node src/tools/serve.mjs --port 8123      # 另開一個終端機
 node src/tools/test-core.mjs              # 解析、查表、別名、循環、模式選擇
 node src/tools/test-simplified.mjs        # 無損／強制簡體轉換與搜尋形式
-node src/tools/http-test.mjs              # HTTP 啟動清單 → 記憶體編輯 → 未存檔 → 離開儲存
+node src/tools/cm-test.mjs                # CM6 閱讀/編輯 → 巢狀 → ^ 補全 → 刪括號 → 孤兒 → 16 字 → 存檔
+node src/tools/cm-file-test.mjs           # file:// 直接載入與編輯
+node src/tools/cm-block-test.mjs          # block widget 巢狀
+node src/tools/http-test.mjs              # HTTP 清單 → 內嵌編輯 → 存檔 → 離開 → 寫回 API
 node src/tools/live-check.mjs             # 線上 https://shutonggui.cn/offtext/ 實測
 node src/tools/deploy-offtext.mjs --check # 檢查遠端部署目錄與權限
 node src/tools/click-test.mjs             # 展開 → 循環 → 反鏈接 → 索引分頁 → Ctrl 點擊 → 圖譜（層數/字級/連線/hover）→ 單科排行下拉 → 文字/圖譜切換
@@ -342,7 +376,7 @@ node src/tools/link-audit.mjs   # 找出未標記的詞目提及（--fix 自動�
 node src/tools/link-audit.mjs --file data/economics.tsv --orphans --check
 ```
 
-`click-test` 會把截圖寫到 [build/shots/shot-clicked.png](build/shots/shot-clicked.png)，並確認整個過程沒有 JS 例外。
+`cm-test` 會把截圖寫到 `build/shots/cm-expanded.png`、`cm-entry.png`、`cm-mobile.png`；`cm-block-test` 寫 `cm-block.png`；`cm-file-test` 寫 `cm-file.png`。
 
 
 
