@@ -263,37 +263,7 @@
 
   const dataParam = query.get('data');
 
-  async function bootMobile() {
-    document.body.classList.add('is-booting');
-    boot.hidden = false;
-    bootCatalog.hidden = true;
-    bootOpen.hidden = true;
-    bootOpenSelected.hidden = true;
-    bootStatus.textContent = '載入全部科目…';
-    if (DATA) {
-      await ensureCM();
-      bootWithDomains(DATA);
-      return;
-    }
-    if (location.protocol === 'file:') {
-      bootStatus.textContent = '手機模式需要 HTTP 才能自動載入全部科目；file:// 的選檔功能已關閉。';
-      return;
-    }
-    if (!TSV_MANIFEST.length) {
-      bootStatus.textContent = '找不到科目清單（tsv-manifest.js）。';
-      return;
-    }
-    try {
-      const loaded = await fetchDomainFiles(TSV_MANIFEST);
-      bootWithDomains(loaded);
-    } catch (e) {
-      bootStatus.textContent = '載入失敗：' + (e && e.message ? e.message : e);
-    }
-  }
-
-  if (state.uiMode === 'mobile') {
-    bootMobile();
-  } else if (dataParam && /^https?:$/.test(location.protocol)) {
+  if (dataParam && /^https?:$/.test(location.protocol)) {
     const ids = dataParam
       .split(',')
       .map((id) => id.trim())
@@ -305,9 +275,14 @@
   } else if (dataParam) {
     bootStatus.textContent = 'file:// 不支援 fetch；請用「選擇本機 TSV…」開啟。';
   } else if (DATA) {
-    ensureCM().then(() => bootWithDomains(DATA));
-  } else {
+    // 單一 HTML 匯出檔（或測試注入）自帶資料，直接進主畫面。
+    if (state.uiMode === 'mobile') bootWithDomains(DATA);
+    else ensureCM().then(() => bootWithDomains(DATA));
+  } else if (location.protocol === 'file:') {
+    // 只有 file:// 才停在選檔頁；HTTP(S) 讀 data-index.txt 直接載入。
     document.body.classList.add('is-booting');
     boot.hidden = false;
     bootStatus.textContent = '';
+  } else {
+    bootFromDataIndex();
   }

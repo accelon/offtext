@@ -113,23 +113,16 @@ async function waitFor(expression, label, timeout = 15000) {
 await send('Runtime.enable');
 await send('Page.enable');
 await waitFor('document.readyState === "complete"', 'document ready');
-await waitFor('!document.querySelector("#bootCatalog").hidden', 'boot catalog');
-
-const catalog = await evaluate(`(() => {
-  const rows = [...document.querySelectorAll('.boot-tsv')];
-  return {
-    url: location.href,
-    count: rows.length,
-    checked: rows.filter((row) => row.querySelector('input').checked).length,
-    names: rows.map((row) => row.querySelector('.boot-tsv-name').textContent),
-    allChecked: rows.every((row) => row.querySelector('input').checked),
-    protocol: location.protocol,
-  };
-})()`);
-
-await evaluate("document.querySelector('#bootOpenSelected').click()");
 await waitFor('document.querySelector("#boot").hidden', 'boot hidden');
 await waitFor('document.querySelectorAll("#subject option").length > 1', 'subjects');
+
+const boot = await evaluate(`(() => ({
+  url: location.href,
+  protocol: location.protocol,
+  bootHidden: document.querySelector('#boot').hidden,
+  catalogWasVisible: !document.querySelector('#bootCatalog').hidden,
+  catalogRows: document.querySelectorAll('.boot-tsv').length,
+}))()`);
 
 const loaded = await evaluate(`(() => ({
   subjects: [...document.querySelectorAll('#subject option')].map((o) => o.textContent),
@@ -148,7 +141,7 @@ const loaded = await evaluate(`(() => ({
 const shot = await send('Page.captureScreenshot', { format: 'png' });
 fs.writeFileSync(path.join(SHOTS, 'shot-live.png'), Buffer.from(shot.result.data, 'base64'));
 
-console.log(JSON.stringify({ catalog, loaded, exceptions }, null, 2));
+console.log(JSON.stringify({ boot, loaded, exceptions }, null, 2));
 
 ws.close();
 child.kill();

@@ -36,7 +36,8 @@ src/
 - **本機測試編輯**：只有 `file://` 或 `localhost` 加 `?edit=1` 才會載入編輯功能，供測試與日後 EXE 版沿用。
 - **桌面**：閱讀使用同一個 `EditorView`；閱讀只是 `EditorState.readOnly`，游標仍在。編輯只在 `?edit=1` 的本機模式啟用。
 - **巢狀**：展開的引用在 widget 內再掛一個唯讀 `EditorView`，共用同一組 decoration／theme／resolve 規則。
-- **手機**：不載入 CM6，使用 DOM 渲染；啟動時自動載入 manifest 全部科目。
+- **手機**：不載入 CM6，使用 DOM 渲染；HTTP(S) 啟動時同樣讀 `data-index.txt` 自動載入。
+- **啟動載入**：HTTP(S) 讀 `data/data-index.txt`（一行一個 TSV）直接進主畫面；`file://` 才顯示本機選檔頁。`?data=id1,id2` 仍可指定科目。
 - **hover／export**：用 DOM renderer，不建 CM6 view；export runtime 自帶解析與渲染，不依賴外部檔案。手機與 hover 的 DOM 渲染沿用 `src/app/40-read.js` 的 `renderDoc`／`renderRef`。
 - **lazy CM6**：`index.html` 不直接載入 `offtext-cm.js`；桌面 boot 時才由 `ensureCM()` 注入。手機完全不下载。
 
@@ -58,7 +59,7 @@ src/
 
 ## 索引、加權與 DAG
 
-- `buildIndex()` 一次算好 links、weights、rankings；UI 不重掃全部條目。
+- `buildIndex()` 一次算好 links、weights；UI 不重掃全部條目。
 - 加權是衰減 BFS：直接 1、間接 0.5、二跳 0.25，最多 6 跳；同節點取最短距離一次。
 - `buildDag()` 用 Tarjan SCC 找環，再將分量縮成 DAG 分層；`inversions` 用「基礎度」找基礎概念回頭定義高階概念的邊。
 - `node src/tools/knowledge-audit.mjs` 輸出樞紐、基礎節點、環與反轉候選。
@@ -74,6 +75,7 @@ node src/tools/serve.mjs --port 8123
 ```
 
 - 改 `src/app/*.js` 時跑 `npm run build:app`；只改 CSS 時跑 `node src/tools/build.mjs`。
+- HTTP(S) 要載入哪些科目由 `data/data-index.txt` 決定；改完直接重新整理即可，不用重建。
 - 改 `src/editor/*.js` 時要先跑 `npm run build:editor`。
 - `src/offtext-app.js`、`src/offtext-cm.js` 是產物，但保留在版本庫，讓 `file://` 直接開 `src/index.html` 也能運作。
 - `build/` 頂層每次重建；`build/shots/` 保留。

@@ -182,23 +182,17 @@ try {
   await send('Runtime.enable');
   await send('Page.enable');
   await waitFor('document.readyState === "complete"', 'document ready');
-  await waitFor('!document.querySelector("#bootCatalog").hidden', 'boot catalog');
-
-  const catalog = await evaluate(`(() => {
-    const rows = [...document.querySelectorAll('.boot-tsv')];
-    return {
-      count: rows.length,
-      allChecked: rows.every((row) => row.querySelector('input').checked),
-      names: rows.slice(0, 3).map((row) => row.querySelector('.boot-tsv-name').textContent),
-      openLabel: document.querySelector('#bootOpenSelected').textContent,
-    };
-  })()`);
-  await shot('shot-boot-http.png');
-
-  await evaluate("document.querySelector('#bootOpenSelected').click()");
   await waitFor('document.querySelector("#boot").hidden', 'boot hidden');
   await waitFor('!!document.querySelector(".cm-offtext-root")', 'CM6 root');
   await waitFor('document.querySelectorAll("#subject option").length > 1', 'subjects');
+
+  const auto = await evaluate(`(() => ({
+    bootHidden: document.querySelector('#boot').hidden,
+    catalogWasVisible: !document.querySelector('#bootCatalog').hidden,
+    catalogRows: document.querySelectorAll('.boot-tsv').length,
+    subjects: document.querySelectorAll('#subject option').length,
+  }))()`);
+  await shot('shot-boot-http.png');
 
   const loaded = await evaluate(`(() => ({
     subjects: [...document.querySelectorAll('#subject option')].map((o) => o.textContent),
@@ -324,7 +318,7 @@ try {
   }))()`);
 
   report = {
-    catalog,
+    auto,
     loaded,
     selection,
     editor,

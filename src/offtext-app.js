@@ -494,7 +494,7 @@
     bootStatus.textContent = '讀取 TSV…';
     try {
       const loaded = await fetchDomainFiles(items);
-      await ensureCM();
+      if (state.uiMode !== 'mobile') await ensureCM();
       bootWithDomains(loaded);
     } catch (e) {
       bootStatus.textContent = '載入失敗：' + (e && e.message ? e.message : e);
@@ -643,9 +643,75 @@
     return loaded;
   }
 
+  /** data-index.txt：HTTP(S) 模式決定要載入哪些 TSV；file:// 不讀這個檔。 */
+  function parseDataIndex(text) {
+    const files = [];
+    const seen = new Set();
+    for (const raw of String(text).replace(/^\uFEFF/, '').split(/\r?\n/)) {
+      const line = raw.replace(/#.*$/, '').trim();
+      if (!line) continue;
+      for (const token of line.split(/[\s,]+/)) {
+        let file = token.trim().replace(/^\.\//, '');
+        if (!file) continue;
+        if (!/\.tsv$/i.test(file)) file += '.tsv';
+        if (!/^[A-Za-z0-9._-]+\.tsv$/i.test(file)) {
+          throw new Error('data-index.txt 檔名不合法：' + token);
+        }
+        if (seen.has(file)) continue;
+        seen.add(file);
+        files.push(file);
+      }
+    }
+    return files;
+  }
+
+  async function fetchDataIndexItems() {
+    const bases = query.get('dataBase') ? [query.get('dataBase')] : ['data', '../data'];
+    for (const base of bases) {
+      const prefix = base.endsWith('/') ? base : base + '/';
+      const url = new URL(prefix + 'data-index.txt', location.href);
+      const response = await fetch(url, { cache: 'no-store' });
+      if (!response.ok) continue;
+      const files = parseDataIndex(await response.text());
+      if (!files.length) throw new Error('data-index.txt 沒有列出任何 TSV');
+      const known = new Map(TSV_MANIFEST.map((item) => [item.file, item]));
+      return files.map((file) => {
+        const hit = known.get(file);
+        return { file, id: hit ? hit.id : file.replace(/\.tsv$/i, '') };
+      });
+    }
+    return null;
+  }
+
+  async function bootFromDataIndex() {
+    document.body.classList.add('is-booting');
+    boot.hidden = false;
+    bootCatalog.hidden = true;
+    bootOpenSelected.hidden = true;
+    bootOpen.hidden = true;
+    bootStatus.textContent = '讀取 data-index.txt…';
+    try {
+      let items = await fetchDataIndexItems();
+      if (!items) {
+        // 舊部署或漏檔時退回 manifest 的全部科目，至少不會卡在空白畫面。
+        if (!TSV_MANIFEST.length) throw new Error('找不到 data-index.txt');
+        items = TSV_MANIFEST.map((item) => ({ id: item.id, file: item.file }));
+      }
+      bootStatus.textContent = '載入 ' + items.length + ' 個科目…';
+      const loaded = await fetchDomainFiles(items);
+      if (state.uiMode !== 'mobile') await ensureCM();
+      bootWithDomains(loaded);
+    } catch (e) {
+      // 自動載入失敗才顯示科目清單，讓使用者手動選。
+      bootStatus.textContent = '自動載入失敗：' + (e && e.message ? e.message : e);
+      bootOpenSelected.hidden = false;
+      renderBootCatalog();
+    }
+  }
+
   async function bootFromCatalog(items) {
     const loaded = await fetchDomainFiles(items);
-    await ensureCM();
+    if (state.uiMode !== 'mobile') await ensureCM();
     bootWithDomains(loaded);
   }
 
@@ -5577,37 +5643,7 @@ html[data-theme="dark"] .export-hover{box-shadow:0 16px 40px rgba(0,0,0,.55)}
 
   const dataParam = query.get('data');
 
-  async function bootMobile() {
-    document.body.classList.add('is-booting');
-    boot.hidden = false;
-    bootCatalog.hidden = true;
-    bootOpen.hidden = true;
-    bootOpenSelected.hidden = true;
-    bootStatus.textContent = '載入全部科目…';
-    if (DATA) {
-      await ensureCM();
-      bootWithDomains(DATA);
-      return;
-    }
-    if (location.protocol === 'file:') {
-      bootStatus.textContent = '手機模式需要 HTTP 才能自動載入全部科目；file:// 的選檔功能已關閉。';
-      return;
-    }
-    if (!TSV_MANIFEST.length) {
-      bootStatus.textContent = '找不到科目清單（tsv-manifest.js）。';
-      return;
-    }
-    try {
-      const loaded = await fetchDomainFiles(TSV_MANIFEST);
-      bootWithDomains(loaded);
-    } catch (e) {
-      bootStatus.textContent = '載入失敗：' + (e && e.message ? e.message : e);
-    }
-  }
-
-  if (state.uiMode === 'mobile') {
-    bootMobile();
-  } else if (dataParam && /^https?:$/.test(location.protocol)) {
+  if (dataParam && /^https?:$/.test(location.protocol)) {
     const ids = dataParam
       .split(',')
       .map((id) => id.trim())
@@ -5619,11 +5655,16 @@ html[data-theme="dark"] .export-hover{box-shadow:0 16px 40px rgba(0,0,0,.55)}
   } else if (dataParam) {
     bootStatus.textContent = 'file:// 不支援 fetch；請用「選擇本機 TSV…」開啟。';
   } else if (DATA) {
-    ensureCM().then(() => bootWithDomains(DATA));
-  } else {
+    // 單一 HTML 匯出檔（或測試注入）自帶資料，直接進主畫面。
+    if (state.uiMode === 'mobile') bootWithDomains(DATA);
+    else ensureCM().then(() => bootWithDomains(DATA));
+  } else if (location.protocol === 'file:') {
+    // 只有 file:// 才停在選檔頁；HTTP(S) 讀 data-index.txt 直接載入。
     document.body.classList.add('is-booting');
     boot.hidden = false;
     bootStatus.textContent = '';
+  } else {
+    bootFromDataIndex();
   }
 
 })();

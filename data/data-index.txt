@@ -1,0 +1,19 @@
+# HTTP(S) 啟動時要載入的 TSV：一行一個檔名，順序就是科目順序。
+# 開頭 # 是註解；也可以寫科目 id（會自動補 .tsv）。
+# file:// 不讀這個檔，仍然顯示本機選檔頁。
+chinese.tsv
+ancient-china.tsv
+world-history.tsv
+modern-chinese-history.tsv
+modernization.tsv
+civics.tsv
+art.tsv
+math.tsv
+physics.tsv
+chemistry.tsv
+biology.tsv
+earthscience.tsv
+computing.tsv
+aijargon.tsv
+economics.tsv
+fq.tsv

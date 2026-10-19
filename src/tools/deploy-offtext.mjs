@@ -152,15 +152,20 @@ try {
     .sort();
   const dataFiles = fs
     .readdirSync(DATA, { withFileTypes: true })
-    .filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith('.tsv'))
+    .filter(
+      (entry) =>
+        entry.isFile() &&
+        (entry.name.toLowerCase().endsWith('.tsv') || entry.name === 'data-index.txt')
+    )
     .map((entry) => entry.name)
     .sort();
   if (!staticFiles.includes('index.html')) die('build/index.html 不存在，先跑 node src/tools/build.mjs');
   if (!dataFiles.length) die('data/ 沒有 TSV');
+  if (!dataFiles.includes('data-index.txt')) die('缺少 data/data-index.txt（HTTP 自動載入用）');
 
   console.log('部署目標：' + DOCROOT);
   console.log('靜態檔：' + staticFiles.join(', '));
-  console.log('TSV：' + dataFiles.join(', '));
+  console.log('資料檔：' + dataFiles.join(', '));
 
   // 先傳到 offtext.new，完整後再換上，避免上傳中斷留下半套網站。
   remote(
@@ -193,7 +198,7 @@ try {
   );
   console.log(swap);
 
-  // 從公開 HTTPS 驗證首頁、manifest 與一份 TSV。
+  // 從公開 HTTPS 驗證首頁、data-index、manifest 與一份 TSV。
   const stamp = Date.now();
   const checks = [
     BASE_URL + '?v=' + stamp,
@@ -201,6 +206,7 @@ try {
     BASE_URL + 'offtext-cm.js?v=' + stamp,
     BASE_URL + 'offtext-app.js?v=' + stamp,
     BASE_URL + 'data/modern-chinese-history.tsv?v=' + stamp,
+    BASE_URL + 'data/data-index.txt?v=' + stamp,
   ];
   for (const url of checks) {
     const res = await fetch(url, { cache: 'no-store' });
@@ -211,7 +217,11 @@ try {
     if (url === checks[1] && !text.includes('OFFTEXT_TSV_MANIFEST')) die('manifest 內容不正確');
     if (url === checks[2] && !text.includes('OfftextCM')) die('CM6 bundle 內容不正確');
     if (url === checks[3] && !text.includes('READONLY_ONLY')) die('app bundle 內容不正確');
+    if (url === checks[3] && !text.includes('data-index.txt')) die('app bundle 沒有 data-index 載入');
     if (url === checks[4] && !text.includes('{id:"modern-chinese-history"')) die('TSV 內容不正確');
+    if (url === checks[5] && !text.includes('modern-chinese-history.tsv')) {
+      die('data-index.txt 內容不正確');
+    }
     console.log('✓ ' + url + '  HTTP ' + res.status + '  ' + Buffer.byteLength(text) + ' bytes');
   }
   console.log('完成：' + BASE_URL);

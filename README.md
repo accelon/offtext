@@ -32,7 +32,7 @@ npm run build
 node src/tools/serve.mjs --port 8123
 ```
 
-HTTP 開 `http://127.0.0.1:8123/build/index.html`；啟動頁勾選科目後按「開啟選定的科目」。`file://` 直接開 `build/index.html`，用「選擇本機 TSV…」載入。
+HTTP 開 `http://127.0.0.1:8123/`（會轉到 `build/index.html`）；它會讀 `data/data-index.txt` 自動載入列出的科目，直接進主畫面。`file://` 直接開 `build/index.html`，才顯示「選擇本機 TSV…」載入頁。
 
 - 線上版只提供閱讀：桌面與手機都能展開、hover、索引、搜尋與圖譜，不顯示編輯／存檔／孤兒／Export。
 - 本機 `file://` 或 `localhost` 加 `?edit=1` 才開啟編輯，供測試與日後單機 EXE 版沿用；部署網域即使加 `?edit=1` 仍只讀。
@@ -43,7 +43,7 @@ HTTP 開 `http://127.0.0.1:8123/build/index.html`；啟動頁勾選科目後按�
 
 ## 資料
 
-`data/` 目前有 16 個科目、1,830 個內容條目。科目清單與統計見 [knowledge.md](knowledge.md)。資料檔不預先打包；啟動頁只讀 `data/` 的檔名與 meta，載入後才 fetch 內容。
+`data/` 目前有 16 個科目、1,830 個內容條目。科目清單與統計見 [knowledge.md](knowledge.md)。資料檔不預先打包；HTTP 啟動時只讀 `data/data-index.txt` 的清單，再逐一 fetch TSV 內容。要改載入哪些科目，編輯 `data/data-index.txt` 即可（一行一個檔名，`#` 開頭是註解）。
 
 ## 建置與驗證
 
