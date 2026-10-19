@@ -2137,9 +2137,9 @@ body.is-mobile-ui .subject {
 }
 
 body.is-mobile-ui .search-wrap {
-  order: 3;
-  flex: 1 1 100%;
-  max-width: none;
+  flex: 0 1 110px;
+  min-width: 90px;
+  max-width: 115px;
   margin-left: 0;
 }
 
@@ -2211,9 +2211,9 @@ body.is-mobile-ui .entry-title-row {
   }
 
   .search-wrap {
-    order: 3;
-    flex: 1 1 100%;
-    max-width: none;
+    flex: 0 1 110px;
+    min-width: 90px;
+    max-width: 115px;
     margin-left: 0;
   }
 
