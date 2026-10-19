@@ -26,6 +26,7 @@ function idOf(domain, key) {
 for (const d of index.order) {
   for (const [key, value] of d.entries) {
     const from = idOf(d.id, key);
+    if (String(key).startsWith('@')) continue;
     // @ 轉址頁只給查表用，不列入條目、循環與孤島統計。
     if (key !== '_' && String(value).trim().startsWith('@')) {
       redirects.push(from);

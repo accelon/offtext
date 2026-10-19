@@ -28,20 +28,12 @@
   <section id="boot" class="boot">
     <div class="boot-card">
       <div class="boot-kicker">巢式文字</div>
-      <h1>開啟 TSV 開始</h1>
-      <p>勾選要讀的科目（HTTP 直接從 <code>data/</code> 載入；file:// 請用選檔）。編輯先存在記憶體，toolbar 會標示未存檔；按「離開」時才要求寫入權限（HTTP 除錯伺服器可直接寫回）。</p>
-      <section class="boot-catalog" id="bootCatalog" hidden aria-label="data 目錄中的 TSV">
-        <div class="boot-catalog-head">
-          <strong>data/ 中的 TSV</strong>
-          <span id="bootCatalogCount" class="boot-catalog-count"></span>
-        </div>
+      <div class="boot-actions">
+        <button id="bootOpenSelected" class="boot-open" type="button">開啟選定的科目</button>
+        <span id="bootCatalogCount" class="boot-catalog-count"></span>
+      </div>
+      <section class="boot-catalog" id="bootCatalog" hidden aria-label="科目清單">
         <div class="boot-catalog-list" id="bootCatalogList"></div>
-        <div class="boot-catalog-actions">
-          <button id="bootSelectAll" class="boot-link" type="button">全選</button>
-          <button id="bootSelectNone" class="boot-link" type="button">全不選</button>
-          <button id="bootOpenSelected" class="boot-open" type="button">開啟選取的 TSV</button>
-        </div>
-        <p id="bootCatalogHint" class="boot-hint"></p>
       </section>
       <button id="bootOpen" class="boot-secondary" type="button">選擇本機 TSV…</button>
       <p id="bootStatus" class="boot-status"></p>
@@ -49,12 +41,10 @@
   </section>
 
   <header class="topbar">
-    <button id="homeBtn" class="home-icon" type="button" title="回到首頁" aria-label="回到首頁">⌂</button>
+    <button id="homeBtn" class="home-icon" type="button" title="回到科目首頁" aria-label="回到科目首頁">⌂</button>
 
     <label class="subject">科目
-      <select id="subject" aria-label="選擇科目">
-        <option value="">全部</option>
-      </select>
+      <select id="subject" aria-label="選擇科目"></select>
     </label>
     <button id="dirtyBtn" class="dirty-btn" type="button" hidden title="有未存檔的科目">● 未存檔</button>
 
@@ -81,6 +71,7 @@
 
     <button id="editBtn" class="ghost edit-mode-btn" type="button" title="在目前條目上直接編輯（游標留在原處）">編輯</button>
     <button id="orphanBtn" class="ghost orphan-btn" type="button" hidden title="列出沒有反鏈接的條目；點選後直接編寫">孤兒</button>
+    <button id="exportBtn" class="ghost export-btn" type="button" hidden title="把目前條目與可達的引用打包成單一 HTML">Export</button>
     <button id="saveBtn" class="save-btn" type="button" hidden title="檢查、重建索引，並在可用時寫回 TSV">存檔（0）</button>
 
     <div id="viewSwitch" class="view-switch" role="group" aria-label="檢視模式">
@@ -117,6 +108,18 @@
       <button id="settingsClose" class="set-close" type="button" title="關閉（Esc）"
               aria-label="關閉設置">✕</button>
     </header>
+
+    <section class="set-section">
+      <h3>介面</h3>
+      <div class="set-row">
+        <span>版面</span>
+        <span class="seg" id="uiSeg" role="group" aria-label="介面模式">
+          <button type="button" data-ui="desktop">桌面</button>
+          <button type="button" data-ui="mobile">手機（簡化）</button>
+        </span>
+      </div>
+      <p class="set-hint" id="uiHint">手機模式不載入 CodeMirror、不顯示編輯功能，啟動時直接載入全部科目。手機／平板會自動使用這個模式。</p>
+    </section>
 
     <section class="set-section">
       <h3>主題</h3>
@@ -166,7 +169,6 @@
   <script src="nestedtext-simplified.js"></script>
   <script src="nestedtext-settings.js"></script>
   <script src="nestedtext-core.js"></script>
-  <script src="offtext-cm.js"></script>
   <script src="nestedtext.js"></script>
 </body>
 </html>

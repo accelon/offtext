@@ -8,7 +8,14 @@
     "build": "node src/tools/build-editor.mjs && node src/tools/build.mjs",
     "serve": "node src/tools/serve.mjs",
     "test:core": "node src/tools/test-core.mjs",
-    "test:editor": "node src/tools/cm-test.mjs"
+    "test:editor": "node src/tools/cm-test.mjs",
+    "test:boot": "node src/tools/boot-test.mjs",
+    "test:hover": "node src/tools/hover-test.mjs",
+    "test:intext": "node src/tools/intext-test.mjs",
+    "test:mobile": "node src/tools/mobile-test.mjs",
+    "test:export": "node src/tools/export-test.mjs",
+    "test:contrast": "node src/tools/contrast-test.mjs",
+    "audit:knowledge": "node src/tools/knowledge-audit.mjs"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.18.6",

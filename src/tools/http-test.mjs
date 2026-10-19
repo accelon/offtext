@@ -1,4 +1,4 @@
-﻿// HTTP 模式實測：啟動頁 TSV 清單 → 載入 → 內嵌編輯 → 存檔／重建 → 離開 → 寫回 API。
+// HTTP 模式實測：啟動頁 TSV 清單 → 載入 → 內嵌編輯 → 存檔／重建 → 離開 → 寫回 API。
 // 需要先跑 node src/tools/serve.mjs --port 8123，並 node src/tools/build.mjs。
 // 用法：node src/tools/http-test.mjs
 import { spawn } from 'node:child_process';
@@ -294,15 +294,17 @@ try {
   const leaveFile = await (await fetch(API + '/data/chinese.tsv', { cache: 'no-store' })).text();
   const leaveWrote = leaveFile.includes(picked2.text + '\t這是離開時儲存測試值');
 
-  // file:// 模式：清單仍要出現，但按鈕改成選檔。
+  // file:// 模式：不再顯示 TSV 清單，只留本機選檔。
   await send('Page.navigate', { url: FILE_PAGE });
   await waitFor('document.readyState === "complete"', 'file ready');
-  await waitFor('!document.querySelector("#bootCatalog").hidden', 'file catalog');
+  await waitFor('!document.querySelector("#boot").hidden', 'file boot');
   const fileMode = await evaluate(`(() => ({
     protocol: location.protocol,
+    catalogHidden: document.querySelector('#bootCatalog').hidden,
     count: document.querySelectorAll('.boot-tsv').length,
-    openLabel: document.querySelector('#bootOpenSelected').textContent,
-    hint: document.querySelector('#bootCatalogHint').textContent,
+    openHidden: document.querySelector('#bootOpen').hidden,
+    openLabel: document.querySelector('#bootOpen').textContent,
+    selectedHidden: document.querySelector('#bootOpenSelected').hidden,
     hasCM: !!window.OfftextCM,
   }))()`);
   await shot('shot-boot-file.png');

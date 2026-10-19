@@ -112,7 +112,7 @@ await send('Page.enable');
 await send('Page.addScriptToEvaluateOnNewDocument', {
   source: `window.OFFTEXT_DOMAINS = [{
     id: 'modern-chinese-history',
-    name: '近代中國史',
+    name: '中國近代史',
     entries: {
       '_': '這是一份用 file:// 直接開啟的巢狀文字。',
       '甲': '甲條目用來說明^[乙]。',

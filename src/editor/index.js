@@ -36,6 +36,7 @@ import { charLength, parseSpans } from './parse.js';
 export { parseSpans, charLength } from './parse.js';
 
 const refreshEffect = StateEffect.define();
+const insertedEffect = StateEffect.define();
 
 /* ---------- 小工具 ---------- */
 
@@ -67,6 +68,87 @@ function selectionTouches(state, from, to) {
 function lineOf(doc, pos) {
   return doc.lineAt(Math.max(0, Math.min(doc.length, pos)));
 }
+
+/* ---------- 系統插入標記的「取消」按鈕 ---------- */
+
+class CancelInsertedWidget extends WidgetType {
+  constructor(mark) {
+    super();
+    this.mark = mark;
+  }
+  eq(other) {
+    return (
+      other.mark.id === this.mark.id &&
+      other.mark.from === this.mark.from &&
+      other.mark.to === this.mark.to
+    );
+  }
+  toDOM(view) {
+    const button = el('button', 'cm-cancel-insert', '取消');
+    button.type = 'button';
+    button.title = '取消這次系統加入的引用標記';
+    button.addEventListener('mousedown', (event) => event.preventDefault());
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      view.dispatch({
+        changes: { from: this.mark.from, to: this.mark.to, insert: '' },
+        effects: insertedEffect.of({ remove: this.mark.id }),
+      });
+      const ctx = view.cmContext;
+      if (ctx && ctx.host && ctx.host.onInsertedCancel) ctx.host.onInsertedCancel();
+      view.focus();
+    });
+    return button;
+  }
+  ignoreEvent() {
+    return false;
+  }
+}
+
+const insertedField = StateField.define({
+  create() {
+    return [];
+  },
+  update(marks, tr) {
+    let next = marks
+      .map((mark) => {
+        const from = tr.changes.mapPos(mark.from, 1);
+        const to = tr.changes.mapPos(mark.to, -1);
+        if (to <= from) return null;
+        if (tr.newDoc.sliceString(from, to) !== mark.text) return null;
+        return { ...mark, from, to };
+      })
+      .filter(Boolean);
+
+    for (const effect of tr.effects) {
+      if (!effect.is(insertedEffect)) continue;
+      if (effect.value.removeAll) {
+        next = [];
+      }
+      if (effect.value.remove) {
+        next = next.filter((mark) => mark.id !== effect.value.remove);
+      }
+      if (effect.value.add) {
+        next = next.filter((mark) => mark.id !== effect.value.add.id);
+        next.push(effect.value.add);
+      }
+    }
+    return next;
+  },
+  provide: (field) =>
+    EditorView.decorations.from(field, (marks) =>
+      Decoration.set(
+        marks.map((mark) =>
+          Decoration.widget({
+            widget: new CancelInsertedWidget(mark),
+            side: 1,
+          }).range(mark.to)
+        ),
+        true
+      )
+    ),
+});
 
 /* ---------- 裝飾用的 widget ---------- */
 
@@ -125,7 +207,13 @@ class RefWidget extends WidgetType {
     label.setAttribute('role', 'button');
     label.setAttribute('tabindex', '-1');
     label.setAttribute('aria-expanded', String(!!o.expanded));
+    label.dataset.ref = o.tok.ref;
+    if (o.tok.domain) label.dataset.domain = o.tok.domain;
+    if (o.contextDomain) label.dataset.context = o.contextDomain;
     label.textContent = o.label;
+    if (String(o.focus || '').includes('is-focus-ancestor')) {
+      label.classList.add('is-focus-ancestor');
+    }
     if (o.status !== 'ok') label.classList.add('is-missing');
     const raw = '^[' + o.inner + ']';
     label.title =
@@ -376,6 +464,11 @@ function buildDecorations(state, ctx) {
 
   for (const tok of spans) {
     if (tok.type === 'text') {
+      if (!ctx.editing && focusPath && focusPath !== ctx.prefix) {
+        ranges.push(
+          Decoration.mark({ class: 'cm-focus-dim-text' }).range(tok.from, tok.to)
+        );
+      }
       if (simMode !== 0) {
         const shown = host.display(tok.text);
         const first = lineOf(doc, tok.from);
@@ -724,6 +817,7 @@ function extensionsFor(ctx, nested) {
   if (root) {
     exts.push(
       history(),
+      insertedField,
       closeBrackets(),
       autocompletion({
         override: [completionSource(ctx)],
@@ -905,6 +999,16 @@ function createEntry(options) {
         key: parentCtx ? parentCtx.key : ctx.key,
         depth: parentCtx ? parentCtx.depth : ctx.depth,
       };
+    },
+    clearInserted() {
+      view.dispatch({ effects: insertedEffect.of({ removeAll: true }) });
+    },
+    markInserted(from, to, id, text) {
+      view.dispatch({
+        effects: insertedEffect.of({
+          add: { from, to, id, text: String(text) },
+        }),
+      });
     },
     scrollToPath(path) {
       const target = shell.querySelector(

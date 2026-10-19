@@ -18955,6 +18955,7 @@ var OfftextCM = (() => {
 
   // src/editor/index.js
   var refreshEffect = StateEffect.define();
+  var insertedEffect = StateEffect.define();
   function el(tag, cls, text) {
     const node = document.createElement(tag);
     if (cls) node.className = cls;
@@ -18979,6 +18980,76 @@ var OfftextCM = (() => {
   function lineOf(doc2, pos) {
     return doc2.lineAt(Math.max(0, Math.min(doc2.length, pos)));
   }
+  var CancelInsertedWidget = class extends WidgetType {
+    constructor(mark) {
+      super();
+      this.mark = mark;
+    }
+    eq(other) {
+      return other.mark.id === this.mark.id && other.mark.from === this.mark.from && other.mark.to === this.mark.to;
+    }
+    toDOM(view) {
+      const button = el("button", "cm-cancel-insert", "\u53D6\u6D88");
+      button.type = "button";
+      button.title = "\u53D6\u6D88\u9019\u6B21\u7CFB\u7D71\u52A0\u5165\u7684\u5F15\u7528\u6A19\u8A18";
+      button.addEventListener("mousedown", (event) => event.preventDefault());
+      button.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        view.dispatch({
+          changes: { from: this.mark.from, to: this.mark.to, insert: "" },
+          effects: insertedEffect.of({ remove: this.mark.id })
+        });
+        const ctx = view.cmContext;
+        if (ctx && ctx.host && ctx.host.onInsertedCancel) ctx.host.onInsertedCancel();
+        view.focus();
+      });
+      return button;
+    }
+    ignoreEvent() {
+      return false;
+    }
+  };
+  var insertedField = StateField.define({
+    create() {
+      return [];
+    },
+    update(marks2, tr) {
+      let next = marks2.map((mark) => {
+        const from = tr.changes.mapPos(mark.from, 1);
+        const to = tr.changes.mapPos(mark.to, -1);
+        if (to <= from) return null;
+        if (tr.newDoc.sliceString(from, to) !== mark.text) return null;
+        return { ...mark, from, to };
+      }).filter(Boolean);
+      for (const effect of tr.effects) {
+        if (!effect.is(insertedEffect)) continue;
+        if (effect.value.removeAll) {
+          next = [];
+        }
+        if (effect.value.remove) {
+          next = next.filter((mark) => mark.id !== effect.value.remove);
+        }
+        if (effect.value.add) {
+          next = next.filter((mark) => mark.id !== effect.value.add.id);
+          next.push(effect.value.add);
+        }
+      }
+      return next;
+    },
+    provide: (field) => EditorView.decorations.from(
+      field,
+      (marks2) => Decoration.set(
+        marks2.map(
+          (mark) => Decoration.widget({
+            widget: new CancelInsertedWidget(mark),
+            side: 1
+          }).range(mark.to)
+        ),
+        true
+      )
+    )
+  });
   var TextWidget = class extends WidgetType {
     constructor(text) {
       super();
@@ -19014,7 +19085,13 @@ var OfftextCM = (() => {
       label.setAttribute("role", "button");
       label.setAttribute("tabindex", "-1");
       label.setAttribute("aria-expanded", String(!!o.expanded));
+      label.dataset.ref = o.tok.ref;
+      if (o.tok.domain) label.dataset.domain = o.tok.domain;
+      if (o.contextDomain) label.dataset.context = o.contextDomain;
       label.textContent = o.label;
+      if (String(o.focus || "").includes("is-focus-ancestor")) {
+        label.classList.add("is-focus-ancestor");
+      }
       if (o.status !== "ok") label.classList.add("is-missing");
       const raw = "^[" + o.inner + "]";
       label.title = raw + (o.status === "ok" ? "\uFF1A" + (o.editMode ? "\u9EDE\u64CA\u7DE8\u8F2F\u5F15\u7528\uFF1B" : "\u9EDE\u64CA\u5C55\u958B\uFF0F\u6536\u5408\uFF1B") + "Ctrl/\u2318+\u9EDE\u64CA\u76F4\u63A5\u958B\u555F" : "\uFF1A\u627E\u4E0D\u5230\u76EE\u6A19\uFF1B\u9EDE\u64CA\u8F09\u5165\u5176\u4ED6\u79D1\u76EE");
@@ -19217,6 +19294,11 @@ var OfftextCM = (() => {
     }
     for (const tok of spans) {
       if (tok.type === "text") {
+        if (!ctx.editing && focusPath && focusPath !== ctx.prefix) {
+          ranges.push(
+            Decoration.mark({ class: "cm-focus-dim-text" }).range(tok.from, tok.to)
+          );
+        }
         if (simMode !== 0) {
           const shown = host.display(tok.text);
           const first = lineOf(doc2, tok.from);
@@ -19516,6 +19598,7 @@ var OfftextCM = (() => {
     if (root) {
       exts.push(
         history(),
+        insertedField,
         closeBrackets(),
         autocompletion({
           override: [completionSource(ctx)],
@@ -19684,6 +19767,16 @@ var OfftextCM = (() => {
           key: parentCtx ? parentCtx.key : ctx.key,
           depth: parentCtx ? parentCtx.depth : ctx.depth
         };
+      },
+      clearInserted() {
+        view.dispatch({ effects: insertedEffect.of({ removeAll: true }) });
+      },
+      markInserted(from, to, id, text) {
+        view.dispatch({
+          effects: insertedEffect.of({
+            add: { from, to, id, text: String(text) }
+          })
+        });
       },
       scrollToPath(path) {
         const target = shell.querySelector(

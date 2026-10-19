@@ -100,11 +100,95 @@ assert.ok(aiRankings.important.length > 0);
 assert.ok(aiRankings.core.length > 0);
 assert.ok(aiRankings.hub.length > 0);
 for (let i = 1; i < aiRankings.important.length; i++) {
-  assert.ok(aiRankings.important[i - 1].forward >= aiRankings.important[i].forward);
+  assert.ok(
+    aiRankings.important[i - 1].forwardWeight >= aiRankings.important[i].forwardWeight
+  );
 }
-for (const item of aiRankings.hub) assert.equal(item.hub, item.forward * item.back);
+for (const item of aiRankings.hub) {
+  assert.equal(item.hub, item.forwardWeight * item.backWeight);
+}
 for (const domain of index.order.filter((d) => !d.hidden)) {
   assert.ok(index.rankings.has(domain.id));
 }
+
+// 13. 加權：直接 1、間接 0.5、二跳 0.25；同一節點只取最短距離
+const weighted = NT.buildIndex([
+  {
+    id: 'w',
+    entries: {
+      _: '',
+      A: '^[B]、^[C]',
+      B: '^[D]',
+      C: '^[D]',
+      D: '基礎',
+      E: '^[A]',
+    },
+  },
+]);
+const wf = (key) => weighted.weights.forward.get('w:' + key);
+const wb = (key) => weighted.weights.backward.get('w:' + key);
+assert.equal(wf('A'), 2.5); // B、C 各 1，D 只算一次 0.5
+assert.equal(wb('A'), 1); // E 直接引用
+assert.equal(wf('D'), 0);
+assert.equal(wb('D'), 2.75); // B、C 各 1，A 0.5，E 0.25
+assert.equal(weighted.weights.hub.get('w:A'), 2.5);
+assert.equal(weighted.weights.normalized.get('w:A').forward, 1);
+
+// 14. DAG：無環時分層由基礎概念往上；有環時要抓出來
+const dag = NT.buildDag(weighted);
+assert.equal(dag.cycles.length, 0);
+assert.equal(dag.layerOf('w:D'), 0);
+assert.equal(dag.layerOf('w:B'), 1);
+assert.equal(dag.layerOf('w:A'), 2);
+assert.equal(dag.layerOf('w:E'), 3);
+
+const cyclic = NT.buildIndex([
+  { id: 'c', entries: { A: '^[B]', B: '^[A]' } },
+]);
+const cyclicDag = NT.buildDag(cyclic);
+assert.equal(cyclicDag.cycles.length, 1);
+assert.equal(cyclicDag.cycles[0].size, 2);
+
+// 15. 基礎度反轉：基礎概念去定義高階概念時要列出來
+const inverted = NT.buildIndex([  {
+    id: 'i',
+    entries: {
+      X: '^[Z]',
+      Z: '^[P]、^[Q]、^[R]、^[S]、^[T]',
+      P: '基礎',
+      Q: '基礎',
+      R: '基礎',
+      S: '基礎',
+      T: '基礎',
+      A: '^[X]',
+      B: '^[X]',
+      C: '^[X]',
+      D: '^[X]',
+      E: '^[X]',
+      F: '^[X]',
+    },
+  },
+]);
+const invertedDag = NT.buildDag(inverted);
+assert.ok(
+  invertedDag.inversions.some(
+    (item) => item.from === 'i:X' && item.to === 'i:Z' && item.delta > 0.15
+  )
+);
+
+// 16. @ 開頭的 key 是保留字：不查表、不進加權
+const reservedIndex = NT.buildIndex([
+  {
+    id: 'r',
+    entries: {
+      '@x': '保留字',
+      A: '內容',
+      B: '^[@x]',
+    },
+  },
+]);
+assert.equal(NT.resolve(reservedIndex, '@x').status, 'missing');
+assert.equal(reservedIndex.weights.forward.has('r:@x'), false);
+assert.equal(reservedIndex.weights.backward.has('r:@x'), false);
 
 console.log('core: 全部通過');

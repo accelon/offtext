@@ -2,7 +2,7 @@
   --bg: #f4f2ec;
   --panel: #fffdf8;
   --ink: #24262a;
-  --muted: #73756e;
+  --muted: #64665e;
   --line: #e2ddd1;
   --line-strong: #cec7b6;
   --accent: #2c5a86;
@@ -35,7 +35,7 @@ html[data-theme="eye"] {
   --bg: #f1e4cc;
   --panel: #faf2e0;
   --ink: #3a3225;
-  --muted: #6e634f;
+  --muted: #665b47;
   --line: #d8c7a8;
   --line-strong: #c2ad84;
   --accent: #7a581f;
@@ -112,14 +112,27 @@ body.is-booting .site-foot {
 }
 
 .boot-card {
+  display: flex;
+  flex-direction: column;
   width: min(680px, 100%);
   max-height: calc(100vh - 44px);
-  overflow: auto;
+  overflow: hidden;
   padding: clamp(22px, 5vw, 36px);
   border: 1px solid var(--line);
   border-radius: 18px;
   background: var(--panel);
   box-shadow: 0 20px 60px rgba(40, 34, 24, 0.14);
+}
+
+.boot-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 0 10px;
+}
+
+.boot-actions .boot-catalog-count {
+  margin-left: auto;
 }
 
 .boot-kicker {
@@ -171,7 +184,10 @@ body.is-booting .site-foot {
 
 /* 啟動頁：data/ 中的 TSV 清單（檔案只列名稱，不含內容）。 */
 .boot-catalog {
-  margin: 14px 0 12px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  margin: 0 0 12px;
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 12px;
@@ -196,9 +212,11 @@ body.is-booting .site-foot {
 
 .boot-catalog-list {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   gap: 10px;
-  max-height: min(60vh, 560px);
+  min-height: 0;
+  max-height: min(58vh, 540px);
   overflow: auto;
   padding: 5px;
 }
@@ -228,6 +246,13 @@ body.is-booting .site-foot {
   color: var(--muted);
   font-size: 10.5px;
   font-variant-numeric: tabular-nums;
+}
+
+.boot-group-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 4px;
 }
 
 .boot-group-items {
@@ -645,6 +670,86 @@ main {
   overflow-wrap: anywhere;
 }
 
+/* ---------- Hover popup：桌面閱讀時預覽引用 ---------- */
+
+.hover-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 240;
+  pointer-events: none;
+}
+
+.hover-layer[hidden] {
+  display: none;
+}
+
+.hover-card {
+  position: fixed;
+  display: flex;
+  flex-direction: column;
+  width: min(380px, calc(100vw - 24px));
+  max-height: min(62vh, 430px);
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--panel) 96%, transparent);
+  box-shadow: 0 18px 46px rgba(38, 31, 22, 0.2);
+  backdrop-filter: blur(10px) saturate(1.05);
+  pointer-events: auto;
+}
+
+html[data-theme="dark"] .hover-card {
+  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.55);
+}
+
+.hover-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  padding: 9px 11px 7px;
+  border-bottom: 1px solid var(--line);
+}
+
+.hover-card-title {
+  font-size: 14px;
+}
+
+.hover-card-domain {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.hover-card-hint {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 10.5px;
+}
+
+.hover-card-body {
+  min-height: 0;
+  overflow: auto;
+  padding: 8px 11px 10px;
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.9;
+  white-space: pre-wrap;
+}
+
+.hover-ref {
+  cursor: pointer;
+  white-space: normal;
+}
+
+.hover-card-body .nt-ref {
+  font-size: inherit;
+}
+
+.hover-card-body .nt-ref.is-missing {
+  border-bottom-style: dashed;
+  color: var(--cycle-ink);
+}
+
 /* 反鏈接與正文同級，貼在標題右側；多筆時只讓這一列水平捲動。 */
 .backlinks {
   display: flex;
@@ -668,6 +773,42 @@ main {
 .backlinks-count {
   margin-left: -0.25em;
   opacity: 0.7;
+}
+
+.backlink-search {
+  flex: 0 0 auto;
+  padding: 0 7px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 11px;
+  line-height: 1.7;
+  cursor: pointer;
+}
+
+.backlink-search:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.backlink.is-pending {
+  padding: 0 7px;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--accent);
+}
+
+.backlink-pending-tag {
+  margin-right: 3px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--panel);
+  font-size: 9px;
+  line-height: 1.6;
 }
 
 .backlinks-list {
@@ -1345,8 +1486,22 @@ html[data-theme="dark"] .graph-node.is-selected .graph-node-circle {
 
 /* ---------- 焦點模式：只留目前展開的那條路徑 ---------- */
 
-#reader.is-focusing .nt-dim {
+/* 焦點模式：只留目前展開的那條路徑。父層退到背景，子節點保持清楚。 */
+#reader.is-focusing .nt-dim,
+#reader.is-focusing .is-dim {
   opacity: 0.35;
+}
+
+#reader.is-focusing .nt-ref.is-focus-ancestor,
+#reader.is-focusing .cm-ref.is-focus-ancestor,
+#reader.is-focusing .cm-focus-dim-text,
+#reader.is-focusing .nt-focus-ancestor {
+  opacity: 0.55;
+}
+
+#reader.is-focusing .is-focus-current,
+#reader.is-focusing .nt-focus-current {
+  opacity: 1;
 }
 
 #reader.is-focusing .nt-exp-inline.nt-focus-current {
@@ -1396,9 +1551,12 @@ html[data-theme="dark"] .nt-ref:focus-visible {
 /* 行內展開只畫底線：用外框的話，換行時每個 span 片段都會多一圈框線。 */
 .nt-exp-inline {
   display: inline;
-  padding: 0 1px;
+  margin: 0 3px;
+  padding: 0 4px 0 5px;
   border-bottom: 1.5px solid hsl(var(--hue) 55% 48%);
-  background: transparent;
+  border-left: 2px solid hsl(var(--hue) 55% 52% / 0.55);
+  border-radius: 3px;
+  background: color-mix(in srgb, hsl(var(--hue) 55% 70%) 12%, transparent);
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
 }
@@ -1422,7 +1580,7 @@ html[data-theme="dark"] .nt-ref:focus-visible {
 }
 
 .nt-exp-arrow {
-  color: hsl(var(--hue) 50% 55%);
+  color: var(--muted);
 }
 
 .nt-exp-key {
@@ -1441,7 +1599,7 @@ html[data-theme="dark"] .nt-exp-key {
 }
 
 .nt-exp-domain {
-  opacity: 0.65;
+  color: var(--muted);
 }
 
 .nt-exp-close {
@@ -1671,6 +1829,88 @@ html[data-theme="dark"] .nt-exp-key {
 
 .foot-hint {
   margin-left: auto;
+}
+
+/* ---------- 手機／平板簡化介面 ---------- */
+
+body.is-mobile-ui .site-foot,
+body.is-mobile-ui #homeBtn,
+body.is-mobile-ui .rank-nav,
+body.is-mobile-ui #readHistory,
+body.is-mobile-ui #editBtn,
+body.is-mobile-ui #saveBtn,
+body.is-mobile-ui #orphanBtn,
+body.is-mobile-ui #exportBtn,
+body.is-mobile-ui #leaveBtn,
+body.is-mobile-ui #dirtyBtn,
+body.is-mobile-ui .entry-orphan {
+  display: none !important;
+}
+
+body.is-mobile-ui .topbar {
+  flex-wrap: wrap;
+  gap: 8px 10px;
+  padding: 8px 12px;
+}
+
+body.is-mobile-ui .subject {
+  margin-left: 0;
+}
+
+body.is-mobile-ui .search-wrap {
+  order: 3;
+  flex: 1 1 100%;
+  max-width: none;
+  margin-left: 0;
+}
+
+body.is-mobile-ui #reader {
+  width: 100%;
+  max-width: none;
+  padding: 22px 16px 54px;
+}
+
+body.is-mobile-ui .entry-title {
+  font-size: 23px;
+}
+
+body.is-mobile-ui .entry-title-row {
+  gap: 6px 10px;
+}
+
+body.is-mobile-ui .nt-line {
+  font-size: 17px;
+}
+
+.nt-mobile-read {
+  display: inline-block;
+  margin: 0 2px 2px 5px;
+  padding: 0 7px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--accent);
+  font: inherit;
+  font-size: 11px;
+  line-height: 1.7;
+  vertical-align: baseline;
+  cursor: pointer;
+}
+
+.nt-mobile-read:hover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 9%, var(--panel));
+}
+
+@media (max-height: 560px) {
+  .boot-card {
+    overflow: auto;
+  }
+
+  .boot-catalog-list {
+    max-height: none;
+    overflow: visible;
+  }
 }
 
 /* ---------- 窄螢幕 ---------- */
@@ -2090,6 +2330,24 @@ html[data-theme="dark"] .nt-exp-key {
   overflow-wrap: anywhere;
 }
 
+.reco-go {
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding: 2px 9px;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--panel);
+  font: inherit;
+  font-size: 11px;
+  line-height: 1.7;
+  cursor: pointer;
+}
+
+.reco-go:hover {
+  filter: brightness(1.07);
+}
+
 .reco-panel > .edit-actions {
   padding: 0 18px;
 }
@@ -2481,7 +2739,8 @@ html[data-theme="dark"] .nt-exp-key {
 }
 
 .save-btn[hidden],
-.orphan-btn[hidden] {
+.orphan-btn[hidden],
+.export-btn[hidden] {
   display: none;
 }
 
@@ -2567,6 +2826,26 @@ html[data-theme="dark"] .nt-exp-key {
   border-bottom-color: var(--cycle-ring);
 }
 
+.cm-cancel-insert {
+  display: inline-block;
+  margin: 0 2px;
+  padding: 0 5px;
+  border: 1px solid var(--cycle-ring);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--cycle-ink) 7%, var(--panel));
+  color: var(--cycle-ink);
+  font: inherit;
+  font-size: 10px;
+  line-height: 1.55;
+  vertical-align: 1px;
+  cursor: pointer;
+}
+
+.cm-cancel-insert:hover {
+  border-color: var(--cycle-ink);
+  background: color-mix(in srgb, var(--cycle-ink) 13%, var(--panel));
+}
+
 .cm-ref-caret {
   display: inline-block;
   margin-left: 1px;
@@ -2604,10 +2883,12 @@ html[data-theme="dark"] .nt-exp-key {
 .cm-nested-inline {
   display: inline-block;
   max-width: 100%;
-  margin: 0 1px;
-  padding: 0 2px 1px;
+  margin: 0 3px;
+  padding: 0 4px 1px 5px;
   border-bottom: 1.5px solid hsl(var(--hue) 55% 48%);
-  background: color-mix(in srgb, hsl(var(--hue) 55% 80%) 8%, transparent);
+  border-left: 2px solid hsl(var(--hue) 55% 52% / 0.55);
+  border-radius: 3px;
+  background: color-mix(in srgb, hsl(var(--hue) 55% 80%) 12%, transparent);
 }
 
 .cm-nested-inline .cm-editor {
@@ -2677,11 +2958,6 @@ html[data-theme="dark"] .nt-exp-key {
 
 .cm-exp-head .nt-exp-close {
   margin-left: 0;
-}
-
-/* 焦點模式：只留目前路徑，其餘淡出。 */
-#reader.is-focusing .is-dim {
-  opacity: 0.35;
 }
 
 .cm-focus-current,

@@ -5,8 +5,8 @@ import path from 'node:path';
 
 export const SOURCES = [
   'chinese.tsv',
-  'ancientchina.tsv',
-  'worldhistory.tsv',
+  'ancient-china.tsv',
+  'world-history.tsv',
   'modern-chinese-history.tsv',
   'modernization.tsv',
   'civics.tsv',

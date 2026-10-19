@@ -184,6 +184,7 @@ const expanded = await evaluate(`(() => ({
   refs: document.querySelectorAll('.cm-ref').length,
   focusCurrent: document.querySelectorAll('.is-focus-current').length,
   dim: document.querySelectorAll('.is-dim').length,
+  dimText: document.querySelectorAll('.cm-focus-dim-text').length,
   focusing: document.querySelector('#reader').classList.contains('is-focusing'),
 }))()`);
 console.log('expanded', JSON.stringify(expanded, null, 2));

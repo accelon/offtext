@@ -13,6 +13,8 @@
   const MAX_DEPTH = 6; // 展開深度上限
   const MAX_HOPS = 16; // 別名鏈上限
   const INLINE_LIMIT = 200; // 這個字數以內的 value 在點擊處展開
+  const WEIGHT_DEPTH = 6; // 間接引用最多算到六跳（1/32 以下已很小）
+  const WEIGHT_DECAY = 0.5; // 每多一跳，權重除以 2
 
   function hue(depth) {
     return (HUE_BASE + depth * HUE_STEP) % 360;
@@ -101,12 +103,14 @@
     const index = { order, byId };
     // 鏈結與全科目節點排行都在同一次建索引時算好，UI 不必再掃一次。
     index.links = buildLinks(index);
+    index.weights = buildWeights(index);
     index.rankings = buildRankings(index);
     return index;
   }
 
   function lookup(index, name, domain, contextDomain) {
     if (!name) return null;
+    if (String(name).startsWith('@')) return null;
 
     if (domain) {
       const d = index.byId.get(domain);
@@ -226,6 +230,7 @@
     for (const domain of index.order) {
       if (domain.hidden) continue;
       for (const [key, value] of domain.entries) {
+        if (String(key).startsWith('@')) continue;
         const sourceId = domain.id + ':' + key;
         for (const token of parse(value)) {
           if (token.type !== 'ref') continue;
@@ -263,6 +268,228 @@
     });
   }
 
+  /* ---------- 加權知識網路 ---------- */
+
+  function isContentEntry(key, value) {
+    return (
+      key !== '_' &&
+      !String(key).startsWith('@') &&
+      String(value == null ? '' : value).trim().charAt(0) !== '@'
+    );
+  }
+
+  /*
+   * 衰減 BFS：直接引用 1、間接 0.5、二跳 0.25，依此類推。
+   * 同一個節點只取「最短距離」一次，避免環路或重複路徑把分數灌大。
+   */
+  function weightWalk(start, adjacency) {
+    const seen = new Set([start]);
+    let frontier = [start];
+    let total = 0;
+    let weight = 1;
+
+    for (let depth = 1; depth <= WEIGHT_DEPTH; depth++) {
+      const next = [];
+      for (const id of frontier) {
+        const targets = adjacency.get(id);
+        if (!targets) continue;
+        for (const target of targets) {
+          if (seen.has(target)) continue;
+          seen.add(target);
+          next.push(target);
+          total += weight;
+        }
+      }
+      if (!next.length) break;
+      frontier = next;
+      weight *= WEIGHT_DECAY;
+    }
+    return total;
+  }
+
+  function buildWeights(index) {
+    const forward = new Map();
+    const backward = new Map();
+    const hub = new Map();
+    const normalized = new Map();
+    const max = new Map();
+
+    for (const domain of index.order) {
+      if (domain.hidden) continue;
+      const ids = [];
+      for (const [key, value] of domain.entries) {
+        if (!isContentEntry(key, value)) continue;
+        const id = domain.id + ':' + key;
+        const f = weightWalk(id, index.links.forward);
+        const b = weightWalk(id, index.links.backward);
+        forward.set(id, f);
+        backward.set(id, b);
+        hub.set(id, f * b);
+        ids.push(id);
+      }
+
+      const domainMax = {
+        forward: Math.max(0, ...ids.map((id) => forward.get(id) || 0)),
+        backward: Math.max(0, ...ids.map((id) => backward.get(id) || 0)),
+        hub: Math.max(0, ...ids.map((id) => hub.get(id) || 0)),
+      };
+      max.set(domain.id, domainMax);
+      for (const id of ids) {
+        normalized.set(id, {
+          forward: domainMax.forward ? forward.get(id) / domainMax.forward : 0,
+          backward: domainMax.backward ? backward.get(id) / domainMax.backward : 0,
+          hub: domainMax.hub ? hub.get(id) / domainMax.hub : 0,
+        });
+      }
+    }
+
+    return { depth: WEIGHT_DEPTH, decay: WEIGHT_DECAY, forward, backward, hub, normalized, max };
+  }
+
+  /*
+   * DAG 健檢：把每個科目合起來看成有向圖，節點是內容條目。
+   * 先找強連通分量（環），再把分量縮成 DAG，依「離基礎概念多遠」分層。
+   * 正常的邊應該由高層指向低層；指向同層或上層就是「用高階概念定義基本概念」。
+   */
+  function buildDag(index) {
+    const nodes = new Map();
+    for (const domain of index.order) {
+      if (domain.hidden) continue;
+      for (const [key, value] of domain.entries) {
+        if (!isContentEntry(key, value)) continue;
+        const id = domain.id + ':' + key;
+        nodes.set(id, { id, domain: domain.id, key });
+      }
+    }
+
+    const out = new Map([...nodes.keys()].map((id) => [id, new Set()]));
+    const edges = [];
+    for (const id of nodes.keys()) {
+      for (const target of index.links.forward.get(id) || []) {
+        if (!nodes.has(target) || target === id) continue;
+        out.get(id).add(target);
+        edges.push({ from: id, to: target });
+      }
+    }
+
+    // Tarjan SCC
+    const orderOf = new Map();
+    const low = new Map();
+    const onStack = new Set();
+    const stack = [];
+    const rawComponents = [];
+    let counter = 0;
+
+    function strongconnect(v) {
+      orderOf.set(v, counter);
+      low.set(v, counter);
+      counter++;
+      stack.push(v);
+      onStack.add(v);
+
+      for (const w of out.get(v) || []) {
+        if (!orderOf.has(w)) {
+          strongconnect(w);
+          low.set(v, Math.min(low.get(v), low.get(w)));
+        } else if (onStack.has(w)) {
+          low.set(v, Math.min(low.get(v), orderOf.get(w)));
+        }
+      }
+
+      if (low.get(v) === orderOf.get(v)) {
+        const component = [];
+        let w;
+        do {
+          w = stack.pop();
+          onStack.delete(w);
+          component.push(w);
+        } while (w !== v);
+        rawComponents.push(component);
+      }
+    }
+
+    for (const id of nodes.keys()) {
+      if (!orderOf.has(id)) strongconnect(id);
+    }
+
+    const componentOf = new Map();
+    rawComponents.forEach((component, i) => {
+      for (const id of component) componentOf.set(id, i);
+    });
+
+    const compOut = rawComponents.map(() => new Set());
+    for (const edge of edges) {
+      const a = componentOf.get(edge.from);
+      const b = componentOf.get(edge.to);
+      if (a !== b) compOut[a].add(b);
+    }
+
+    const layers = new Array(rawComponents.length).fill(0);
+    const layerMemo = new Map();
+    function layerOfComponent(c) {
+      if (layerMemo.has(c)) return layerMemo.get(c);
+      let deepest = -1;
+      for (const next of compOut[c]) {
+        if (next !== c) deepest = Math.max(deepest, layerOfComponent(next));
+      }
+      const layer = deepest + 1;
+      layerMemo.set(c, layer);
+      return layer;
+    }
+    rawComponents.forEach((_, i) => {
+      layers[i] = layerOfComponent(i);
+    });
+
+    const components = rawComponents.map((ids, i) => ({
+      id: i,
+      ids,
+      size: ids.length,
+      layer: layers[i],
+    }));
+    const cycles = components.filter((component) => component.size > 1);
+
+    /*
+     * 分層只能保證「邊由高層指向低層」；它無法判斷高層是不是真的比低層抽象。
+     * 這裡另用「基礎度」＝逆鏈權重／(順鏈＋逆鏈) 找反向的定義：
+     * 基礎度高的條目去定義基礎度低的條目，通常就是把因果或從屬方向寫反了。
+     */
+    const weights = index.weights || { forward: new Map(), backward: new Map() };
+    const basicity = new Map();
+    for (const id of nodes.keys()) {
+      const f = weights.forward.get(id) || 0;
+      const b = weights.backward.get(id) || 0;
+      basicity.set(id, f + b ? b / (f + b) : 0);
+    }
+    const inversions = [];
+    for (const edge of edges) {
+      const delta = basicity.get(edge.from) - basicity.get(edge.to);
+      if (delta > 0.15) {
+        inversions.push({
+          from: edge.from,
+          to: edge.to,
+          fromBasicity: basicity.get(edge.from),
+          toBasicity: basicity.get(edge.to),
+          delta,
+        });
+      }
+    }
+    inversions.sort((a, b) => b.delta - a.delta);
+
+    return {
+      nodes,
+      edges,
+      components,
+      componentOf,
+      layers,
+      cycles,
+      inversions,
+      layerOf: (id) => {
+        const c = componentOf.get(id);
+        return c == null ? null : layers[c];
+      },
+    };
+  }
+
   /*
    * 單一科目的節點排行：
    * important = 順鏈多、core = 逆鏈多、hub = 順鏈 × 逆鏈（兩邊都多才會高）。
@@ -272,15 +499,29 @@
     const top = limit || 12;
     const rankings = new Map();
     const visible = index.order.filter((d) => !d.hidden);
+    const weights = index.weights;
 
     for (const domain of visible) {
       const rows = [];
-      for (const key of domain.entries.keys()) {
-        if (key === '_') continue;
+      for (const [key, value] of domain.entries) {
+        if (!isContentEntry(key, value)) continue;
         const id = domain.id + ':' + key;
         const forward = index.links.forward.get(id) ? index.links.forward.get(id).size : 0;
         const back = index.links.backward.get(id) ? index.links.backward.get(id).size : 0;
-        rows.push({ id, domain: domain.id, key, forward, back, hub: forward * back });
+        const forwardWeight = weights.forward.get(id) || 0;
+        const backWeight = weights.backward.get(id) || 0;
+        const norm = weights.normalized.get(id) || { forward: 0, backward: 0, hub: 0 };
+        rows.push({
+          id,
+          domain: domain.id,
+          key,
+          forward,
+          back,
+          forwardWeight,
+          backWeight,
+          hub: forwardWeight * backWeight,
+          norm,
+        });
       }
 
       const ranked = (metric) =>
@@ -289,14 +530,14 @@
           .sort(
             (a, b) =>
               b[metric] - a[metric] ||
-              b.forward + b.back - (a.forward + a.back) ||
+              b.forwardWeight + b.backWeight - (a.forwardWeight + a.backWeight) ||
               a.key.localeCompare(b.key, 'zh-Hant')
           )
           .slice(0, top);
 
       rankings.set(domain.id, {
-        important: ranked('forward'),
-        core: ranked('back'),
+        important: ranked('forwardWeight'),
+        core: ranked('backWeight'),
         hub: ranked('hub'),
       });
     }
@@ -320,7 +561,7 @@
     for (const d of index.order) {
       if (d.hidden) continue;
       for (const [key, value] of d.entries) {
-        if (key === '_') continue;
+        if (key === '_' || String(key).startsWith('@')) continue;
         if (String(value).trim().startsWith('@')) continue; // 轉址頁不是可引用的條目
         if (key.includes(n) || n.includes(key)) out.push(key);
         if (out.length >= (limit || 3)) return out;
@@ -334,11 +575,15 @@
     HUE_STEP,
     MAX_DEPTH,
     INLINE_LIMIT,
+    WEIGHT_DEPTH,
+    WEIGHT_DECAY,
     hue,
     parse,
     plainText,
     buildIndex,
     buildLinks,
+    buildWeights,
+    buildDag,
     buildRankings,
     backlinksFor,
     lookup,

@@ -29,10 +29,13 @@
     backlink: null,
     view: 'entry',
     indexDomain: null,
+    uiMode: 'desktop',
     readOnly: false,
     editing: false,
     createKey: null,
     pendingEdit: false,
+    pendingInsert: null,
+    pendingBacklink: null,
     focusEditorOnce: false,
     graph: {
       depth: 2,
@@ -48,6 +51,34 @@
   };
 
   const query = new URLSearchParams(location.search);
+
+  const UI_KEY = 'offtext.ui.v1';
+  function detectUiMode() {
+    const coarse = window.matchMedia ? window.matchMedia('(pointer: coarse)').matches : false;
+    const touch = coarse || (navigator.maxTouchPoints || 0) > 0;
+    const mobileUa = /Mobi|Android|iPhone|iPad|Tablet|HarmonyOS/i.test(navigator.userAgent || '');
+    const phoneLike = touch && (mobileUa || window.innerWidth <= 1024);
+    let stored = '';
+    try {
+      stored = localStorage.getItem(UI_KEY) || '';
+    } catch (e) {
+      /* 私密模式 */
+    }
+    const requested = query.get('ui');
+    const mode = phoneLike
+      ? 'mobile'
+      : requested === 'mobile'
+        ? 'mobile'
+        : requested === 'desktop'
+          ? 'desktop'
+          : stored === 'mobile'
+            ? 'mobile'
+            : 'desktop';
+    return { mode, forced: phoneLike };
+  }
+  const uiMode = detectUiMode();
+  const FORCED_MOBILE = uiMode.forced;
+  state.uiMode = uiMode.mode;
 
   const $ = (sel) => document.querySelector(sel);
   const reader = $('#reader');
@@ -69,19 +100,30 @@
   const bootCatalog = $('#bootCatalog');
   const bootCatalogList = $('#bootCatalogList');
   const bootCatalogCount = $('#bootCatalogCount');
-  const bootCatalogHint = $('#bootCatalogHint');
   const bootOpenSelected = $('#bootOpenSelected');
-  const bootSelectAll = $('#bootSelectAll');
-  const bootSelectNone = $('#bootSelectNone');
   const dirtyBtn = $('#dirtyBtn');
   const leaveBtn = $('#leaveBtn');
   const editBtn = $('#editBtn');
   const saveBtn = $('#saveBtn');
   const orphanBtn = $('#orphanBtn');
+  const exportBtn = $('#exportBtn');
 
   const TSV_MANIFEST = Array.isArray(window.OFFTEXT_TSV_MANIFEST)
     ? window.OFFTEXT_TSV_MANIFEST
     : [];
+
+  document.body.classList.toggle('is-mobile-ui', state.uiMode === 'mobile');
+
+  // 舊網址／舊書籤仍可用；資料檔本身已改成 kebab-case。
+  const DOMAIN_ALIASES = new Map([
+    ['ancientchina', 'ancient-china'],
+    ['worldhistory', 'world-history'],
+    ['history', 'modern-chinese-history'],
+  ]);
+
+  function canonicalDomainId(id) {
+    return DOMAIN_ALIASES.get(id) || id;
+  }
 
   // 只存在記憶體、尚未寫回 TSV 的科目。
   const dirtyDomains = new Set();
@@ -102,10 +144,18 @@
     return domain ? domain.name || domain.id : id;
   }
 
+  function displayKey(domain, key) {
+    return key === '_' ? domainName(domain) : key;
+  }
+
+  function isReservedKey(key) {
+    return !key || String(key).startsWith('@');
+  }
+
   function defaultIndexDomain() {
     const current = state.root && state.root.domain;
     if (current && domains.some((d) => d.id === current)) return current;
-    return domains[0] ? domains[0].id : 'all';
+    return domains[0] ? domains[0].id : '';
   }
 
   function el(tag, cls, text) {
@@ -137,6 +187,7 @@
 
   // 把轉址頁的 key 換成它真正指向的條目。
   function canonicalKey(domain, key) {
+    domain = canonicalDomainId(domain);
     if (!state.index || !key || key === '_') return { domain, key };
     const res = NT.resolve(state.index, key, domain);
     if (res.status !== 'ok') return { domain, key };
@@ -149,7 +200,7 @@
     entries.length = 0;
     domains.forEach((domain) => {
       for (const [key, value] of domain.entries) {
-        if (key === '_' || isRedirect(value)) continue;
+        if (key === '_' || isReservedKey(key) || isRedirect(value)) continue;
         const plain = NT.plainText(value);
         const forms = SETTINGS ? SETTINGS.searchForms(key + ' ' + plain) : [key + ' ' + plain];
         entries.push({
@@ -208,13 +259,13 @@
         )
         .slice(0, READ_HISTORY_MAX)
         .map((item) => {
-          const domain = item.domain === 'history' ? 'modern-chinese-history' : item.domain;
+          const domain = canonicalDomainId(item.domain);
           return {
             domain,
             key: item.key,
             name:
               domain === 'modern-chinese-history'
-                ? '近代中國史'
+                ? '中國近代史'
                 : typeof item.name === 'string'
                   ? item.name
                   : domain,
@@ -299,7 +350,7 @@
   }
 
   function fillSubjectSelect() {
-    while (subjectSelect.options.length > 1) subjectSelect.remove(1);
+    subjectSelect.textContent = '';
     domains.forEach((domain) => {
       const option = document.createElement('option');
       option.value = domain.id;
@@ -318,11 +369,7 @@
     dirtyBtn.hidden = dirty.length === 0;
     if (dirty.length) {
       const currentId =
-        state.view === 'index'
-          ? state.indexDomain && state.indexDomain !== 'all'
-            ? state.indexDomain
-            : null
-          : state.root.domain;
+        state.view === 'index' ? state.indexDomain : state.root.domain;
       dirtyBtn.textContent =
         currentId && dirtyDomains.has(currentId)
           ? '● ' + disp(domainName(currentId)) + ' 未存檔'
@@ -358,13 +405,19 @@
   }
 
   function renderBootCatalog() {
-    if (!TSV_MANIFEST.length) {
+    const fileMode = location.protocol === 'file:';
+    bootOpen.hidden = !fileMode;
+    bootOpenSelected.hidden = fileMode;
+    bootCatalogCount.textContent = '';
+
+    if (!TSV_MANIFEST.length || fileMode) {
       bootCatalog.hidden = true;
-      bootOpen.hidden = false;
+      bootCatalogList.textContent = '';
+      if (!TSV_MANIFEST.length) bootOpenSelected.hidden = true;
       return;
     }
+
     bootCatalog.hidden = false;
-    bootOpen.hidden = true;
     bootCatalogList.textContent = '';
     const groups = ['文科', '理科', '進階', '其他'];
     const byGroup = new Map(groups.map((g) => [g, []]));
@@ -380,6 +433,23 @@
       const head = el('div', 'boot-group-head');
       head.append(el('strong', 'boot-group-name', group));
       head.append(el('span', 'boot-group-count', items.length + ' 科'));
+      const controls = el('span', 'boot-group-actions');
+      const all = el('button', 'boot-link', '全選');
+      all.type = 'button';
+      const none = el('button', 'boot-link', '全不選');
+      none.type = 'button';
+      all.addEventListener('click', () => {
+        section.querySelectorAll('input[type="checkbox"]').forEach((input) => {
+          input.checked = true;
+        });
+      });
+      none.addEventListener('click', () => {
+        section.querySelectorAll('input[type="checkbox"]').forEach((input) => {
+          input.checked = false;
+        });
+      });
+      controls.append(all, none);
+      head.append(controls);
       section.append(head);
       const grid = el('div', 'boot-group-items');
       for (const item of items) {
@@ -400,13 +470,8 @@
       section.append(grid);
       bootCatalogList.append(section);
     }
-    bootCatalogCount.textContent = TSV_MANIFEST.length + ' 個檔';
-
-    const fileMode = location.protocol === 'file:';
-    bootCatalogHint.textContent = fileMode
-      ? 'file:// 模式無法自動讀取 data/；清單供對照，請按「選擇本機 TSV…」開啟。編輯仍先存在記憶體。'
-      : '直接勾選要載入的科目。編輯先存在記憶體，按「離開」時才儲存。';
-    bootOpenSelected.textContent = fileMode ? '選擇本機 TSV…' : '開啟選取的 TSV';
+    bootCatalogCount.textContent = TSV_MANIFEST.length + ' 個科目';
+    bootOpenSelected.textContent = '開啟選定的科目';
   }
 
   async function openSelectedCatalog() {
@@ -423,6 +488,7 @@
     bootStatus.textContent = '讀取 TSV…';
     try {
       const loaded = await fetchDomainFiles(items);
+      await ensureCM();
       bootWithDomains(loaded);
     } catch (e) {
       bootStatus.textContent = '載入失敗：' + (e && e.message ? e.message : e);
@@ -517,6 +583,7 @@
           file: handle.name,
         });
       }
+      await ensureCM();
       bootWithDomains(loaded);
     } catch (e) {
       if (e && e.name === 'AbortError') {
@@ -573,6 +640,7 @@
 
   async function bootFromCatalog(items) {
     const loaded = await fetchDomainFiles(items);
+    await ensureCM();
     bootWithDomains(loaded);
   }
 
@@ -582,7 +650,7 @@
     try {
       await bootFromCatalog(
         ids.map((rawId) => {
-          const id = rawId.replace(/\.tsv$/i, '').trim();
+          const id = canonicalDomainId(rawId.replace(/\.tsv$/i, '').trim());
           return { id, file: id + '.tsv' };
         })
       );
@@ -597,16 +665,6 @@
 
   bootOpen.addEventListener('click', openTsvFiles);
   bootOpenSelected.addEventListener('click', openSelectedCatalog);
-  bootSelectAll.addEventListener('click', () => {
-    bootCatalogList.querySelectorAll('input[type="checkbox"]').forEach((input) => {
-      input.checked = true;
-    });
-  });
-  bootSelectNone.addEventListener('click', () => {
-    bootCatalogList.querySelectorAll('input[type="checkbox"]').forEach((input) => {
-      input.checked = false;
-    });
-  });
 
   /* ---------- 編輯與建議標記 ---------- */
 
@@ -621,7 +679,6 @@
   let loadOverlay = null;
   let dirtyOverlay = null;
   let toastEl = null;
-  let recoTimer = 0;
   const fileHandles = new Map(); // domainId -> { handle, name, meta }
 
   function dataDomain(domainId) {
@@ -1014,7 +1071,6 @@
   }
 
   function resetToBoot() {
-    clearTimeout(recoTimer);
     closeEditor();
     closeRecommendations();
     closeLoadMore();
@@ -1370,7 +1426,6 @@
       closeEditor();
       navigate(domainId, key);
       showToast('已存入記憶體；按「離開」時再儲存');
-      recoTimer = setTimeout(() => showRecommendations(domainId, key), 260);
     }
 
     save.addEventListener('click', commit);
@@ -1392,7 +1447,7 @@
     if (!domain) return [];
     const groups = [];
     for (const [fromKey, value] of Object.entries(domain.entries || {})) {
-      if (fromKey === key) continue;
+      if (fromKey === key || isReservedKey(fromKey)) continue;
       if (isRedirect(value)) continue;
       const hits = [];
       let i = 0;
@@ -1428,7 +1483,7 @@
     recoOverlay = null;
   }
 
-  function showRecommendations(domainId, key) {
+  function showInTextSearch(domainId, key) {
     if (dirtyOverlay) return;
     const groups = findUnlinkedMentions(domainId, key);
     if (!groups.length) {
@@ -1440,8 +1495,8 @@
     const panel = el('section', 'edit-panel reco-panel');
     const head = el('header', 'edit-head');
     const titles = el('div');
-    titles.append(el('div', 'edit-kicker', '建議標記'));
-    titles.append(el('h2', 'edit-title', '「' + key + '」可標記的位置'));
+    titles.append(el('div', 'edit-kicker', '文內搜尋'));
+    titles.append(el('h2', 'edit-title', '在「' + disp(key) + '」的反鏈接區'));
     head.append(titles);
     const close = el('button', 'edit-close', '×');
     close.type = 'button';
@@ -1449,65 +1504,58 @@
     head.append(close);
     panel.append(head);
 
-    const intro = el(
-      'p',
-      'edit-note',
-      '在本科其他內文找到 ' + groups.length + ' 個條目。勾選後會自動加上 ^[' + key + ']。'
+    panel.append(
+      el(
+        'p',
+        'edit-note',
+        '本科有 ' +
+          groups.length +
+          ' 個條目提到「' +
+          disp(key) +
+          '」但尚未加連結。點「前往」會跳到該條目，並在該處補上 ^[' +
+          key +
+          ']；系統標記旁有「取消」。'
+      )
     );
-    panel.append(intro);
 
     const list = el('div', 'reco-list');
-    const checks = [];
     groups.forEach((group) => {
-      const label = el('label', 'reco-item');
-      const input = document.createElement('input');
-      input.type = 'checkbox';
-      input.checked = true;
+      const row = el('div', 'reco-item');
       const text = el('span', 'reco-text');
-      const title = el('span', 'reco-source', group.fromKey === '_' ? '首頁' : group.fromKey);
+      const title = el(
+        'span',
+        'reco-source',
+        group.fromKey === '_' ? disp(domainName(domainId)) : disp(group.fromKey)
+      );
       const contexts = el(
         'span',
         'reco-context',
         group.contexts.join(' ／ ') + (group.hits.length > 3 ? ' …' : '')
       );
       text.append(title, contexts);
-      label.append(input, text);
-      list.append(label);
-      checks.push({ input, group });
+      const go = el('button', 'reco-go', '前往');
+      go.type = 'button';
+      go.title = '跳到「' + group.fromKey + '」並插入 ^[' + key + ']';
+      go.addEventListener('click', () => {
+        closeRecommendations();
+        state.pendingInsert = {
+          domain: domainId,
+          key: group.fromKey,
+          targetKey: key,
+          hitIndex: 0,
+        };
+        openEntryForEdit(domainId, group.fromKey);
+      });
+      row.append(text, go);
+      list.append(row);
     });
     panel.append(list);
 
     const actions = el('div', 'edit-actions');
-    const skip = el('button', 'edit-secondary', '略過');
-    skip.type = 'button';
-    skip.addEventListener('click', closeRecommendations);
-    const apply = el('button', 'edit-primary', '加入選取項目');
-    apply.type = 'button';
-    apply.addEventListener('click', () => {
-      const selected = checks.filter((item) => item.input.checked);
-      if (!selected.length) {
-        showToast('請至少勾選一個位置');
-        return;
-      }
-      const domain = dataDomain(domainId);
-      apply.disabled = true;
-      for (const { group } of selected) {
-        let value = group.value;
-        for (const start of group.hits.slice().sort((a, b) => b - a)) {
-          value = value.slice(0, start) + '^[' + key + ']' + value.slice(start + key.length);
-        }
-        setDomainEntry(domainId, group.fromKey, value);
-      }
-      markDirty(domainId);
-      apply.disabled = false;
-      rebuildAllIndex();
-      closeRecommendations();
-      render();
-      showToast(
-        '已加入 ' + selected.length + ' 個條目的引用標記（記憶體；離開時儲存）'
-      );
-    });
-    actions.append(skip, apply);
+    const done = el('button', 'edit-secondary', '關閉');
+    done.type = 'button';
+    done.addEventListener('click', closeRecommendations);
+    actions.append(done);
     panel.append(actions);
     backdrop.append(panel);
     document.body.append(backdrop);
@@ -1516,7 +1564,25 @@
 
   /* ---------- CodeMirror 內嵌編輯 ---------- */
 
-  const CM = window.OfftextCM || null;
+  let CM = window.OfftextCM || null;
+  let cmLoading = null;
+
+  function ensureCM() {
+    if (state.uiMode === 'mobile') return Promise.resolve(null);
+    if (CM) return Promise.resolve(CM);
+    if (cmLoading) return cmLoading;
+    cmLoading = new Promise((resolve) => {
+      const script = document.createElement('script');
+      script.src = 'offtext-cm.js';
+      script.onload = () => {
+        CM = window.OfftextCM || null;
+        resolve(CM);
+      };
+      script.onerror = () => resolve(null);
+      document.head.append(script);
+    });
+    return cmLoading;
+  }
   let lastDraftCount = -1;
   let saveBusy = false;
   let checkOverlay = null;
@@ -1585,6 +1651,14 @@
     if (orphanBtn) {
       const hidden = !state.editing || state.view !== 'entry';
       if (orphanBtn.hidden !== hidden) orphanBtn.hidden = hidden;
+    }
+    if (exportBtn) {
+      const hidden =
+        state.uiMode !== 'desktop' ||
+        !state.editing ||
+        state.view !== 'entry' ||
+        state.root.key === '_';
+      if (exportBtn.hidden !== hidden) exportBtn.hidden = hidden;
     }
     if (count !== lastDraftCount) {
       lastDraftCount = count;
@@ -1731,6 +1805,10 @@
       requestEdit: (target, targetKey) => openEntryForEdit(target, targetKey),
       completions: (text, contextDomain) => editorCompletions(text, contextDomain),
       onChange: (text) => setDraft(domainId, key, text),
+      onInsertedCancel: () => {
+        state.pendingBacklink = null;
+        refreshBacklinks();
+      },
       saveShortcut: () => {
         saveDrafts();
       },
@@ -1738,6 +1816,7 @@
   }
 
   function mountEntryEditor(article, value) {
+    if (state.uiMode === 'mobile') return false;
     if (!CM || typeof CM.createEntry !== 'function') return false;
     const body = el('div', 'entry-body');
     article.append(body);
@@ -1771,7 +1850,26 @@
     }
   }
 
+  function refreshBacklinks() {
+    if (state.view !== 'entry') return;
+    const targetId = state.root.domain + ':' + state.root.key;
+    const res = editorResolve(state.root.key, state.root.domain, null);
+    if (res.status !== 'ok') return;
+    const row = reader.querySelector('.entry-title-row');
+    if (!row) return;
+    const old = row.querySelector('.backlinks');
+    const list = backlinksFor(targetId);
+    if (list.length || state.editing) {
+      const nav = renderBacklinks(list, res, pendingBacklinkFor(targetId));
+      if (old) old.replaceWith(nav);
+      else row.append(nav);
+    } else if (old) {
+      old.remove();
+    }
+  }
+
   function setEditing(flag) {
+    if (state.uiMode === 'mobile') return;
     const next = !!flag;
     if (next && (state.view !== 'entry' || !entryController)) {
       showToast('請先開啟一個條目');
@@ -1783,7 +1881,9 @@
     }
     state.editing = next;
     if (entryController) entryController.setEditing(next);
+    if (next) closeHoverCards();
     document.body.classList.toggle('is-editing-entry', next);
+    refreshBacklinks();
     updateSaveUi();
     updateOrphanButton();
     if (next) refreshOrphanPanel();
@@ -1791,6 +1891,7 @@
   }
 
   function openEntryForEdit(domain, key) {
+    if (state.uiMode === 'mobile' || isReservedKey(key)) return;
     if (!CM) {
       // 罕見的 bundle 載入失敗：退回舊版 textarea 編輯器，至少還能編。
       const exists = baseValue(domain, key) !== undefined;
@@ -1810,6 +1911,7 @@
   }
 
   function openNewEntry(domain, key) {
+    if (state.uiMode === 'mobile') return;
     const name = String(key == null ? '' : key).trim();
     if (!name) return;
     if (/[@|\[\]\n\t]/.test(name)) {
@@ -1848,6 +1950,9 @@
     };
     for (const draft of drafts.values()) {
       const label = draft.key || '（未命名）';
+      if (isReservedKey(String(draft.key))) {
+        errors.push(label + '：@ 開頭的 key 是保留字，不能展示或編輯');
+      }
       if (!String(draft.value).trim()) errors.push(label + '：釋文不能是空的');
       if (isRedirect(draft.value)) {
         errors.push(label + '：@ 開頭是系統維護的對照頁，不能直接存成條目');
@@ -1993,6 +2098,8 @@
     draftSeq = 0;
     lastDraftCount = 0;
     state.createKey = null;
+    state.pendingInsert = null;
+    state.pendingBacklink = null;
 
     rebuildAllIndex();
     fillSubjectSelect();
@@ -2030,7 +2137,7 @@
     if (!domain) return [];
     const out = [];
     for (const [key, value] of domain.entries) {
-      if (key === '_' || isRedirect(value)) continue;
+      if (key === '_' || isReservedKey(key) || isRedirect(value)) continue;
       if (!state.index.links.incoming.has(domainId + ':' + key)) {
         out.push({ domain: domainId, key, value });
       }
@@ -2044,7 +2151,7 @@
       const domain = state.index.byId.get(domainId);
       if (!domain) continue;
       for (const [key, value] of domain.entries) {
-        if (key === '_' || isRedirect(value)) continue;
+        if (key === '_' || isReservedKey(key) || isRedirect(value)) continue;
         for (const tok of NT.parse(value)) {
           if (tok.type !== 'ref') continue;
           const res = editorResolve(tok.ref, tok.domain, domainId);
@@ -2236,13 +2343,14 @@
 
     if (h === 'index' || h.startsWith('index/')) {
       const raw = h.slice(6);
-      if (!raw || raw === 'all') return { view: 'index', domain: raw || null };
+      if (!raw || raw === 'all') return { view: 'index', domain: null };
       let id = raw;
       try {
         id = decodeURIComponent(raw);
       } catch (e) {
         /* 保留原字串 */
       }
+      id = canonicalDomainId(id);
       if (domains.some((d) => d.id === id)) return { view: 'index', domain: id };
       return { view: 'index', domain: null };
     }
@@ -2271,6 +2379,47 @@
     if (!domains.length) return;
     let route = readRoute() || defaultRoute();
     if (!route) return;
+
+    // 舊科目 id 換成新 id，網址也一併換掉。
+    if ((route.view === 'entry' || route.view === 'graph') && route.domain) {
+      const mapped = canonicalDomainId(route.domain);
+      if (mapped !== route.domain) {
+        route = { ...route, domain: mapped };
+        const h =
+          route.view === 'graph'
+            ? '#/graph/' + encodeURIComponent(route.domain) + '/' + encodeURIComponent(route.key)
+            : '#/' + encodeURIComponent(route.domain) + '/' + encodeURIComponent(route.key);
+        if (location.hash !== h) {
+          try {
+            history.replaceState(null, '', h);
+          } catch (e) {
+            location.hash = h;
+          }
+        }
+      }
+      // @ 開頭的 key 是保留字，不展示也不編輯；回到該科入口。
+      if (isReservedKey(route.key)) {
+        route = { ...route, key: '_' };
+        const h =
+          route.view === 'graph'
+            ? '#/graph/' + encodeURIComponent(route.domain) + '/_'
+            : '#/' + encodeURIComponent(route.domain) + '/_';
+        try {
+          history.replaceState(null, '', h);
+        } catch (e) {
+          location.hash = h;
+        }
+      }
+    } else if (route.view === 'index' && route.domain && route.domain !== 'all') {
+      const h = '#/index/' + encodeURIComponent(route.domain);
+      if (location.hash !== h) {
+        try {
+          history.replaceState(null, '', h);
+        } catch (e) {
+          location.hash = h;
+        }
+      }
+    }
 
     // @ 轉址頁不是給人看的頁面：換成目標條目，網址也一併換掉。
     if (route.view === 'entry' || route.view === 'graph') {
@@ -2305,6 +2454,23 @@
     if (route.view !== 'entry') {
       state.focusEditorOnce = false;
       closeOrphanPanel();
+      state.pendingInsert = null;
+    }
+    if (
+      state.pendingInsert &&
+      (route.view !== 'entry' ||
+        route.domain !== state.pendingInsert.domain ||
+        route.key !== state.pendingInsert.key)
+    ) {
+      state.pendingInsert = null;
+    }
+    if (
+      state.pendingBacklink &&
+      (route.view !== 'entry' ||
+        route.domain !== state.pendingBacklink.targetDomain ||
+        route.key !== state.pendingBacklink.targetKey)
+    ) {
+      state.pendingBacklink = null;
     }
 
     // 反鏈接只對「來源條目」有效；一旦路由離開它，就取消標記。
@@ -2323,6 +2489,14 @@
       state.root = route;
     } else {
       state.indexDomain = route.domain || defaultIndexDomain();
+      if (location.hash === '#/index/all' && state.indexDomain) {
+        const h = '#/index/' + encodeURIComponent(state.indexDomain);
+        try {
+          history.replaceState(null, '', h);
+        } catch (e) {
+          location.hash = h;
+        }
+      }
     }
 
     if (route.view === 'entry' && route.key !== '_') {
@@ -2331,18 +2505,17 @@
 
     document.title =
       route.view === 'index'
-        ? (state.indexDomain === 'all'
-            ? '索引'
-            : '索引 · ' + domainName(state.indexDomain)) + ' · 巢式文字'
+        ? '索引 · ' + domainName(state.indexDomain) + ' · 巢式文字'
         : route.view === 'graph'
-          ? '圖譜 · ' + (route.key === '_' ? '首頁' : route.key) + ' · 巢式文字'
-          : (route.key === '_' ? domainName(route.domain) + ' 首頁' : route.key) + ' · 巢式文字';
+          ? '圖譜 · ' + displayKey(route.domain, route.key) + ' · 巢式文字'
+          : displayKey(route.domain, route.key) + ' · 巢式文字';
 
     render();
   }
 
   function navigate(domain, key, options) {
     const opts = options || {};
+    domain = canonicalDomainId(domain);
     const canon = canonicalKey(domain, key);
     domain = canon.domain;
     key = canon.key;
@@ -2372,9 +2545,10 @@
         state.root.domain ||
         defaultIndexDomain();
     }
-    if (target !== 'all' && !domains.some((d) => d.id === target)) target = defaultIndexDomain();
+    target = canonicalDomainId(target);
+    if (!domains.some((d) => d.id === target)) target = defaultIndexDomain();
 
-    const h = target === 'all' ? '#/index/all' : '#/index/' + encodeURIComponent(target);
+    const h = '#/index/' + encodeURIComponent(target);
     window.scrollTo(0, 0);
     if (location.hash === h) render();
     else location.hash = h;
@@ -2421,9 +2595,7 @@
 
   function currentRankDomain() {
     if (state.view === 'entry' || state.view === 'graph') return state.root.domain;
-    if (state.view === 'index' && state.indexDomain && state.indexDomain !== 'all') {
-      return state.indexDomain;
-    }
+    if (state.view === 'index' && state.indexDomain) return state.indexDomain;
     return null;
   }
 
@@ -2445,9 +2617,19 @@
         const option = document.createElement('option');
         option.value = item.id;
         let detail = '';
-        if (config.metric === 'forward') detail = '順鏈 ' + item.forward;
-        else if (config.metric === 'back') detail = '逆鏈 ' + item.back;
-        else detail = '順鏈 ' + item.forward + '、逆鏈 ' + item.back + '、乘積 ' + item.hub;
+        if (config.metric === 'forward') {
+          detail = '順鏈 ' + item.forward + ' · 加權 ' + item.forwardWeight.toFixed(1);
+        } else if (config.metric === 'back') {
+          detail = '逆鏈 ' + item.back + ' · 加權 ' + item.backWeight.toFixed(1);
+        } else {
+          detail =
+            '順鏈 ' +
+            item.forward +
+            '、逆鏈 ' +
+            item.back +
+            '、樞紐 ' +
+            item.hub.toFixed(1);
+        }
         option.textContent = disp(item.key);
         option.title = disp(item.key) + '：' + detail;
         option.setAttribute('aria-label', disp(item.key) + '，' + detail);
@@ -2538,6 +2720,19 @@
     return doc;
   }
 
+  function mobileReadButton(res) {
+    if (state.uiMode !== 'mobile' || !res || res.status !== 'ok') return null;
+    const btn = el('button', 'nt-mobile-read', '閱讀');
+    btn.type = 'button';
+    btn.title = '換到「' + disp(res.key) + '」這一頁';
+    btn.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      navigate(res.domain, res.key);
+    });
+    return btn;
+  }
+
   function renderRef(tok, path, depth, ancestors, inlineContext, contextDomain) {
     const expanded = state.expanded.has(path);
     const label = disp(tok.display || tok.ref);
@@ -2546,7 +2741,13 @@
     const btn = el('button', 'nt-ref', label);
     btn.type = 'button';
     btn.dataset.path = path;
+    btn.dataset.ref = tok.ref;
+    if (tok.domain) btn.dataset.domain = tok.domain;
+    if (contextDomain) btn.dataset.context = contextDomain;
     btn.style.setProperty('--hue', String(NT.hue(depth)));
+    if (state.focusPath && state.focusPath.startsWith(path + '.')) {
+      btn.classList.add('is-focus-ancestor');
+    }
     btn.setAttribute('aria-expanded', String(expanded));
     btn.title =
       (tok.domain ? `^[${tok.ref}@${tok.domain}]` : `^[${tok.ref}]`) +
@@ -2560,7 +2761,7 @@
         showMissingTarget(tok, contextDomain, res);
         return;
       }
-      if ((e.ctrlKey || e.metaKey) && res.status === 'ok') {
+      if ((e.ctrlKey || e.metaKey) && state.uiMode !== 'mobile' && res.status === 'ok') {
         e.preventDefault();
         navigate(res.domain, res.key);
         return;
@@ -2621,6 +2822,8 @@
       exp.style.setProperty('--hue', String(NT.hue(depth + 1)));
       exp.append(renderDoc(res.value, depth + 1, path, nextAncestors, true, res.domain));
       wrap.append(exp);
+      const read = mobileReadButton(res);
+      if (read) wrap.append(read);
       btn.setAttribute('aria-controls', expId);
       btn.classList.add('is-open');
       return { inline: wrap, block: null };
@@ -2647,6 +2850,8 @@
 
     block.append(head);
     block.append(renderDoc(res.value, depth + 1, path, nextAncestors, false, res.domain));
+    const read = mobileReadButton(res);
+    if (read) block.append(read);
     btn.setAttribute('aria-controls', expId);
     btn.classList.add('is-open');
     return { inline: wrap, block };
@@ -2674,6 +2879,7 @@
 
   function render(options) {
     const opts = options || {};
+    document.body.classList.toggle('is-mobile-ui', state.uiMode === 'mobile');
     const scrollY = window.scrollY;
     const backlinkScroll = state.backlink && state.backlink.scroll ? state.backlink : null;
     const recenterGraph = state.view === 'graph' && state.graph.recenter;
@@ -2682,11 +2888,7 @@
       entryController = null;
     }
     subjectSelect.value =
-      state.view === 'index'
-        ? state.indexDomain === 'all'
-          ? ''
-          : state.indexDomain
-        : state.root.domain;
+      state.view === 'index' ? state.indexDomain : state.root.domain;
     reader.textContent = '';
     reader.classList.toggle('is-focusing', !!state.focusPath && state.view === 'entry');
     if (state.view !== 'graph') hideGraphTip();
@@ -2783,7 +2985,8 @@
     navigate(source.domain, source.key, { keepBacklink: true });
   }
 
-  function renderBacklinks(list, target) {
+  function renderBacklinks(list, target, pending) {
+    if (pending) list = [pending, ...list];
     const nav = el('nav', 'backlinks');
     nav.setAttribute('aria-label', '反鏈接');
     nav.title =
@@ -2794,22 +2997,32 @@
     const strip = el('div', 'backlinks-list');
 
     function makeButton(item, menuItem) {
-      const btn = el('button', 'backlink' + (menuItem ? ' backlink-menu-item' : ''));
+      const btn = el(
+        'button',
+        'backlink' + (menuItem ? ' backlink-menu-item' : '') + (item.pending ? ' is-pending' : '')
+      );
       btn.type = 'button';
-      if (item.domain !== target.domain) {
+      if (item.pending) {
+        btn.append(el('span', 'backlink-pending-tag', '新'));
+      } else if (item.domain !== target.domain) {
         btn.append(el('span', 'backlink-domain', disp(domainName(item.domain)) + '·'));
       }
       btn.append(document.createTextNode(disp(item.key)));
-      btn.title =
-        '跳到 ' +
-        disp(domainName(item.domain)) +
-        ' · ' +
-        disp(item.key) +
-        '，並標出引用「' +
-        disp(target.key) +
-        '」的位置';
+      btn.title = item.pending
+        ? '系統剛加入、尚未存檔的引用；點一下回到「' + disp(item.key) + '」'
+        : '跳到 ' +
+          disp(domainName(item.domain)) +
+          ' · ' +
+          disp(item.key) +
+          '，並標出引用「' +
+          disp(target.key) +
+          '」的位置';
       btn.addEventListener('click', () => {
         if (menuItem) menuItem.open = false;
+        if (item.pending) {
+          navigate(item.domain, item.key);
+          return;
+        }
         openBacklink(item, target);
       });
       return btn;
@@ -2830,7 +3043,264 @@
     }
 
     nav.append(strip);
+    if (state.editing && target && target.status === 'ok') {
+      const search = el('button', 'backlink-search', '文內搜尋');
+      search.type = 'button';
+      search.title = '在本科其他內文中找「' + disp(target.key) + '」，跳過去補連結';
+      search.addEventListener('click', () => showInTextSearch(target.domain, target.key));
+      nav.append(search);
+    }
     return nav;
+  }
+
+  /* ---------- Hover popup（桌面閱讀） ---------- */
+
+  const hoverLayer = el('div', 'hover-layer');
+  hoverLayer.hidden = true;
+  document.body.append(hoverLayer);
+  let hoverCards = [];
+  let hoverOpenTimer = 0;
+  let hoverCloseTimer = 0;
+
+  function clearHoverTimers() {
+    clearTimeout(hoverOpenTimer);
+    clearTimeout(hoverCloseTimer);
+    hoverOpenTimer = 0;
+    hoverCloseTimer = 0;
+  }
+
+  function closeHoverCards(fromCard) {
+    const start = fromCard ? hoverCards.indexOf(fromCard) : 0;
+    if (start < 0) return;
+    for (const card of hoverCards.slice(start)) card.remove();
+    hoverCards = hoverCards.slice(0, start);
+    hoverLayer.hidden = hoverCards.length === 0;
+  }
+
+  function placeHoverCard(card, anchor) {
+    const gap = 10;
+    const rect = anchor.getBoundingClientRect();
+    const box = card.getBoundingClientRect();
+    let left = rect.left + 8;
+    let top = rect.bottom + gap;
+    if (left + box.width > window.innerWidth - 12) left = rect.right - box.width - 8;
+    if (top + box.height > window.innerHeight - 12) top = rect.top - box.height - gap;
+    card.style.left = Math.max(12, left) + 'px';
+    card.style.top = Math.max(12, top) + 'px';
+  }
+
+  function hoverBody(value, domain, depth) {
+    const body = el('div', 'hover-card-body');
+    for (const tok of NT.parse(value)) {
+      if (tok.type === 'text') {
+        body.append(document.createTextNode(disp(tok.text)));
+        continue;
+      }
+      const res = editorResolve(tok.ref, tok.domain, domain);
+      const label = el('span', 'nt-ref hover-ref' + (res.status === 'ok' ? '' : ' is-missing'));
+      label.textContent = disp(tok.display || tok.ref);
+      label.style.setProperty('--hue', String(NT.hue(depth)));
+      label.dataset.ref = tok.ref;
+      if (tok.domain) label.dataset.domain = tok.domain;
+      if (domain) label.dataset.context = domain;
+      label.title =
+        '^[' +
+        tok.inner +
+        ']' +
+        (res.status === 'ok' ? '：Ctrl/⌘+點擊開啟' : '：找不到目標');
+      if (res.status === 'ok') {
+        label.dataset.hoverReady = '1';
+        label.addEventListener('click', (event) => {
+          if (!event.ctrlKey && !event.metaKey) return;
+          event.preventDefault();
+          closeHoverCards();
+          navigate(res.domain, res.key);
+        });
+      }
+      label.addEventListener('mouseenter', () => scheduleHover(label, label.closest('.hover-card')));
+      label.addEventListener('mouseleave', () => {
+        const card = label.closest('.hover-card');
+        if (card) scheduleClose(card);
+      });
+      body.append(label);
+    }
+    return body;
+  }
+
+  function openHoverCard(anchor, parentCard) {
+    const ref = anchor && anchor.dataset ? anchor.dataset.ref : '';
+    if (!ref) return null;
+    const res = editorResolve(ref, anchor.dataset.domain || null, anchor.dataset.context || null);
+    if (res.status !== 'ok') return null;
+    const existing = hoverCards.find((card) => card.__anchor === anchor);
+    if (existing) return existing;
+
+    const start = parentCard ? hoverCards.indexOf(parentCard) + 1 : 0;
+    if (start < hoverCards.length) closeHoverCards(hoverCards[start]);
+
+    const card = el('section', 'hover-card');
+    card.__anchor = anchor;
+    card.__parent = parentCard || null;
+    card.setAttribute('role', 'dialog');
+    card.setAttribute('aria-label', '引用內容');
+
+    const head = el('header', 'hover-card-head');
+    const title = el('strong', 'hover-card-title', disp(displayKey(res.domain, res.key)));
+    const domain = el('span', 'hover-card-domain', disp(domainName(res.domain)));
+    head.append(title, domain);
+    head.append(el('span', 'hover-card-hint', 'Ctrl/⌘+點擊開啟'));
+    card.append(head);
+    card.append(hoverBody(res.value, res.domain, 1));
+
+    card.addEventListener('mouseenter', clearHoverTimers);
+    card.addEventListener('mouseleave', () => scheduleClose(card));
+
+    hoverLayer.hidden = false;
+    hoverLayer.append(card);
+    hoverCards.push(card);
+    card.style.visibility = 'hidden';
+    placeHoverCard(card, anchor);
+    card.style.visibility = '';
+    return card;
+  }
+
+  function scheduleHover(anchor, parentCard) {
+    if (state.uiMode === 'mobile' || state.editing || !anchor || !anchor.dataset || !anchor.dataset.ref) return;
+    clearHoverTimers();
+    hoverOpenTimer = setTimeout(() => {
+      hoverOpenTimer = 0;
+      openHoverCard(anchor, parentCard || null);
+    }, 240);
+  }
+
+  function scheduleClose(card) {
+    clearTimeout(hoverCloseTimer);
+    hoverCloseTimer = setTimeout(() => {
+      hoverCloseTimer = 0;
+      const current = hoverCards[hoverCards.length - 1];
+      if (current === card || (card && hoverCards.includes(card))) closeHoverCards(card);
+    }, 220);
+  }
+
+  function hoverAnchorOf(target) {
+    const anchor = target && target.closest ? target.closest('.cm-ref, .nt-ref') : null;
+    if (!anchor || !reader.contains(anchor) || !anchor.dataset.ref) return null;
+    return anchor;
+  }
+
+  document.addEventListener('mouseover', (event) => {
+    const anchor = hoverAnchorOf(event.target);
+    if (!anchor) return;
+    if (event.relatedTarget && anchor.contains(event.relatedTarget)) return;
+    scheduleHover(anchor, null);
+  });
+
+  document.addEventListener('mouseout', (event) => {
+    const anchor = hoverAnchorOf(event.target);
+    if (!anchor) return;
+    if (event.relatedTarget && anchor.contains(event.relatedTarget)) return;
+    if (hoverCards.length) scheduleClose(hoverCards[0]);
+  });
+
+  document.addEventListener('click', (event) => {
+    if (hoverLayer.hidden) return;
+    if (event.target.closest('.hover-card')) return;
+    if (hoverAnchorOf(event.target)) return;
+    clearHoverTimers();
+    closeHoverCards();
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && hoverCards.length) {
+      event.preventDefault();
+      clearHoverTimers();
+      closeHoverCards();
+    }
+  });
+
+  window.addEventListener('scroll', () => {
+    if (!hoverLayer.hidden) {
+      clearHoverTimers();
+      closeHoverCards();
+    }
+  });
+
+  /* ---------- 條目頁 ---------- */
+
+  function pendingBacklinkFor(targetId) {
+    const pending = state.pendingBacklink;
+    if (!pending || targetId !== pending.targetDomain + ':' + pending.targetKey) return null;
+    const value = valueFor(pending.targetDomain, pending.targetKey) || '';
+    for (const tok of NT.parse(value)) {
+      if (tok.type !== 'ref') continue;
+      const res = editorResolve(tok.ref, tok.domain, pending.targetDomain);
+      if (
+        res.status === 'ok' &&
+        res.domain === pending.sourceDomain &&
+        res.key === pending.sourceKey
+      ) {
+        return { domain: pending.sourceDomain, key: pending.sourceKey, pending: true };
+      }
+    }
+    return null;
+  }
+
+  function plainOccurrences(text, target) {
+    const hits = [];
+    let i = 0;
+    while (i < text.length) {
+      if (text[i] === '^' && text[i + 1] === '[') {
+        const end = text.indexOf(']', i + 2);
+        i = end < 0 ? i + 2 : end + 1;
+        continue;
+      }
+      if (text.startsWith(target, i)) {
+        hits.push(i);
+        i += target.length;
+      } else {
+        i++;
+      }
+    }
+    return hits;
+  }
+
+  function applyPendingInsert() {
+    const pending = state.pendingInsert;
+    if (!pending || !entryController || !state.editing) return;
+    if (state.root.domain !== pending.domain || state.root.key !== pending.key) return;
+    const text = entryController.view.state.doc.toString();
+    const hits = plainOccurrences(text, pending.targetKey);
+    const at = hits[pending.hitIndex] == null ? hits[0] : hits[pending.hitIndex];
+    state.pendingInsert = null;
+    if (at == null) {
+      showToast('「' + pending.targetKey + '」已不在本文中，沒有插入');
+      return;
+    }
+    const from = at;
+    const to = at + pending.targetKey.length;
+    entryController.view.dispatch({
+      changes: [
+        { from, insert: '^[' },
+        { from: to, insert: ']' },
+      ],
+      selection: { anchor: to + 3 },
+      scrollIntoView: true,
+    });
+    entryController.markInserted(
+      from,
+      to + 3,
+      'intext-' + Date.now(),
+      '^[' + pending.targetKey + ']'
+    );
+    entryController.focus();
+    state.pendingBacklink = {
+      targetDomain: pending.domain,
+      targetKey: pending.key,
+      sourceDomain: pending.domain,
+      sourceKey: pending.targetKey,
+    };
+    refreshBacklinks();
+    showToast('已插入 ^[' + pending.targetKey + ']；旁有「取消」可按');
   }
 
   function renderEntry(options) {
@@ -2867,11 +3337,14 @@
     const head = el('header', 'entry-head');
     head.append(el('div', 'entry-kicker', disp(domainName(state.root.domain))));
     const titleRow = el('div', 'entry-title-row');
-    titleRow.append(el('h1', 'entry-title', disp(state.root.key === '_' ? '首頁' : state.root.key)));
+    titleRow.append(el('h1', 'entry-title', disp(displayKey(state.root.domain, state.root.key))));
 
     const targetId = state.root.domain + ':' + state.root.key;
     const backlinks = backlinksFor(targetId);
-    if (backlinks.length) titleRow.append(renderBacklinks(backlinks, res));
+    const pending = pendingBacklinkFor(targetId);
+    if (backlinks.length || state.editing) {
+      titleRow.append(renderBacklinks(backlinks, res, pending));
+    }
 
     const isOrphan = !state.index.links.incoming.has(targetId);
     if (state.editing && state.root.key !== '_' && !isRedirect(value) && isOrphan) {
@@ -2904,6 +3377,15 @@
         const len = controller.view.state.doc.length;
         controller.view.dispatch({ selection: { anchor: creating ? len : 0 } });
       });
+    }
+
+    if (
+      state.pendingInsert &&
+      state.pendingInsert.domain === state.root.domain &&
+      state.pendingInsert.key === state.root.key &&
+      entryController
+    ) {
+      requestAnimationFrame(applyPendingInsert);
     }
 
     if (opts.focusPath && entryController) {
@@ -2983,8 +3465,8 @@
     'use',
   ].sort((a, b) => b.length - a.length);
 
-  function graphLabel(key) {
-    const text = disp(key === '_' ? '首頁' : String(key));
+  function graphLabel(key, domain) {
+    const text = disp(key === '_' ? domainName(domain) : String(key));
     const hasHan = /[\u3400-\u9fff]/.test(text);
 
     if (hasHan) {
@@ -3050,7 +3532,7 @@
     const size = state.graph.fontSize;
     const value = graphDegree(node.id);
     const base = 12 + Math.min(22, Math.sqrt(value) * 4.5);
-    const lines = graphLabel(node.key);
+    const lines = graphLabel(node.key, node.domain);
     const pad = 6;
     const fit = Math.max(
       ...lines.map((line) => graphTextWidth(line, size) / 2 + pad),
@@ -3092,7 +3574,7 @@
 
     graphTip.textContent = '';
     const head = el('div', 'graph-tip-head');
-    head.append(el('strong', 'graph-tip-key', disp(node.key === '_' ? '首頁' : node.key)));
+    head.append(el('strong', 'graph-tip-key', disp(displayKey(node.domain, node.key))));
     head.append(el('span', 'graph-tip-domain', disp(domainName(node.domain))));
     graphTip.append(head);
     graphTip.append(
@@ -3720,7 +4202,7 @@
       }
       group.append(svgEl('circle', { class: 'graph-node-circle', r: node.r }));
 
-      const lines = graphLabel(node.key);
+      const lines = graphLabel(node.key, node.domain);
       const text = svgEl('text', {
         class: 'graph-node-label',
         'text-anchor': 'middle',
@@ -3762,7 +4244,7 @@
 
       group.addEventListener('click', (e) => {
         e.stopPropagation();
-        if (e.ctrlKey || e.metaKey) {
+        if ((e.ctrlKey || e.metaKey) && state.uiMode !== 'mobile') {
           e.preventDefault();
           navigateGraph(node.domain, node.key, { recenter: true });
         } else {
@@ -3772,8 +4254,11 @@
       group.addEventListener('keydown', (e) => {
         if (e.key !== 'Enter' && e.key !== ' ') return;
         e.preventDefault();
-        if (e.ctrlKey || e.metaKey) navigateGraph(node.domain, node.key, { recenter: true });
-        else cycleGraphFocus(node.id);
+        if ((e.ctrlKey || e.metaKey) && state.uiMode !== 'mobile') {
+          navigateGraph(node.domain, node.key, { recenter: true });
+        } else {
+          cycleGraphFocus(node.id);
+        }
       });
 
       nodeLayer.append(group);
@@ -3825,7 +4310,7 @@
 
     const titleRow = el('div', 'entry-title-row');
     titleRow.append(
-      el('h1', 'entry-title', disp(res.key === '_' ? '首頁' : res.key))
+      el('h1', 'entry-title', disp(displayKey(res.domain, res.key)))
     );
     const back = el('button', 'graph-back', '回到條目');
     back.type = 'button';
@@ -3837,7 +4322,7 @@
         'p',
         'index-hint',
         '以「' +
-          disp(res.key === '_' ? '首頁' : res.key) +
+          disp(displayKey(res.domain, res.key)) +
           '」為起點。滑過節點看釋文；點節點切換順鏈／逆鏈高亮；Ctrl/⌘+點擊以它為起點重繪。'
       )
     );
@@ -3881,7 +4366,7 @@
   function indexCount(domain) {
     let n = 0;
     for (const [key, value] of domain.entries) {
-      if (key === '_' || isRedirect(value)) continue;
+      if (key === '_' || isReservedKey(key) || isRedirect(value)) continue;
       n++;
     }
     return n;
@@ -3903,16 +4388,15 @@
       nav.append(btn);
     };
 
-    add('all', '全部', entries.length);
     domains.forEach((domain) => add(domain.id, disp(domain.name || domain.id), indexCount(domain)));
     return nav;
   }
 
   function renderIndex() {
     const selected = state.indexDomain || defaultIndexDomain();
-    const chosen = selected === 'all' ? null : state.index.byId.get(selected);
-    const shown = chosen ? [chosen] : domains;
-    const total = chosen ? indexCount(chosen) : entries.length;
+    const chosen = state.index.byId.get(selected) || state.index.byId.get(defaultIndexDomain());
+    const shown = chosen ? [chosen] : [];
+    const total = chosen ? indexCount(chosen) : 0;
 
     const article = el('article', 'index');
     const head = el('header', 'entry-head');
@@ -3925,11 +4409,11 @@
         '共 ' +
           total +
           ' 條' +
-          (chosen ? ' · ' + disp(domainName(chosen.id)) : ' · 全部科目') +
+          (chosen ? ' · ' + disp(domainName(chosen.id)) : '') +
           '。點一個條目開始，或直接用上方搜尋。'
       )
     );
-    head.append(renderIndexTabs(selected));
+    head.append(renderIndexTabs(chosen ? chosen.id : selected));
     article.append(head);
 
     shown.forEach((domain) => {
@@ -3941,10 +4425,10 @@
 
       const list = el('div', 'index-list');
       if (domain.entries.has('_')) {
-        list.append(indexItem(domain.id, '_', '首頁', domain.entries.get('_')));
+        list.append(indexItem(domain.id, '_', disp(domain.name || domain.id), domain.entries.get('_')));
       }
       for (const [key, value] of domain.entries) {
-        if (key === '_' || isRedirect(value)) continue;
+        if (key === '_' || isReservedKey(key) || isRedirect(value)) continue;
         list.append(indexItem(domain.id, key, key, value));
       }
       section.append(list);
@@ -4036,6 +4520,426 @@
     items[next].focus();
   }
 
+  /* ---------- Export：單一 HTML ---------- */
+
+  const EXPORT_CSS = `
+:root{--bg:#f4f2ec;--panel:#fffdf8;--ink:#24262a;--muted:#64665e;--line:#e2ddd1;--line-strong:#cec7b6;--accent:#2c5a86;color-scheme:light}
+html[data-theme="dark"]{--bg:#15171b;--panel:#1c1f24;--ink:#e8e4da;--muted:#9a9c95;--line:#2c3037;--line-strong:#3c424b;--accent:#8fb6dc;color-scheme:dark}
+html[data-theme="eye"]{--bg:#f1e4cc;--panel:#faf2e0;--ink:#3a3225;--muted:#665b47;--line:#d8c7a8;--line-strong:#c2ad84;--accent:#7a581f;color-scheme:light}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Segoe UI",system-ui,-apple-system,"Microsoft JhengHei","Noto Sans TC","PingFang TC",sans-serif;font-size:16px;line-height:1.9}
+main{max-width:760px;margin:0 auto;padding:30px 24px 72px}
+.entry-kicker{color:var(--muted);font-size:12px;letter-spacing:.08em}
+.entry-title{font-size:28px;line-height:1.3;margin:4px 0 18px}
+.nt-line{font-size:17px;line-height:2.05}
+.nt-block{margin:0 0 1.05em}
+.nt-block.is-inline{display:inline;margin:0}
+.nt-text{white-space:pre-wrap}
+.nt-refwrap{display:inline}
+.nt-ref{margin:0;padding:0;border:0;border-bottom:2px solid hsl(var(--hue) 55% 45%);background:transparent;color:hsl(var(--hue) 55% 30%);font:inherit;line-height:inherit;white-space:nowrap;cursor:pointer}
+.nt-ref:hover{color:hsl(var(--hue) 65% 22%)}
+.nt-ref.is-missing{border-bottom-style:dashed;color:var(--muted)}
+.nt-exp-inline{display:inline;margin:0 3px;padding:0 4px 0 5px;border-bottom:1.5px solid hsl(var(--hue) 55% 48%);border-left:2px solid hsl(var(--hue) 55% 52% / .55);border-radius:3px;background:color-mix(in srgb,hsl(var(--hue) 55% 70%) 12%,transparent);-webkit-box-decoration-break:clone;box-decoration-break:clone}
+.nt-note{margin-left:4px;color:var(--muted);font-size:12px}
+.export-hover-layer{position:fixed;inset:0;z-index:50;pointer-events:none}
+.export-hover{position:fixed;width:min(360px,calc(100vw - 24px));max-height:min(60vh,420px);overflow:auto;padding:10px 12px;border:1px solid var(--line-strong);border-radius:12px;background:var(--panel);box-shadow:0 16px 40px rgba(0,0,0,.18);pointer-events:auto;font-size:14px;line-height:1.8}
+.export-hover-title{display:block;font-weight:600;margin-bottom:3px}
+.export-hover-domain{color:var(--muted);font-size:11px;margin-left:6px}
+html[data-theme="dark"] .nt-ref{color:hsl(var(--hue) 65% 78%);border-bottom-color:hsl(var(--hue) 55% 62%)}
+html[data-theme="dark"] .nt-ref:hover{color:hsl(var(--hue) 70% 86%)}
+html[data-theme="dark"] .export-hover{box-shadow:0 16px 40px rgba(0,0,0,.55)}
+@media(max-width:760px){main{padding:22px 16px 56px}.entry-title{font-size:23px}.nt-line{font-size:17px}}
+`;
+
+  function htmlEscape(text) {
+    return String(text == null ? '' : text).replace(/[&<>"]/g, (ch) => {
+      if (ch === '&') return '&amp;';
+      if (ch === '<') return '&lt;';
+      if (ch === '>') return '&gt;';
+      return '&quot;';
+    });
+  }
+
+  /*
+   * 匯出目前條目與所有可達的內容條目；不含 _ 首頁與 @ 對照頁。
+   * 另外記下「引用名稱 → 目標」的別名，讓 llm 這類寫法在匯出檔仍可解析。
+   */
+  function buildExportPayload() {
+    const start = editorResolve(state.root.key, state.root.domain, null);
+    if (start.status !== 'ok' || start.key === '_') return null;
+
+    const entries = new Map();
+    const domains = new Map();
+    const aliases = new Map();
+    const queue = [{ domain: start.domain, key: start.key }];
+    const seen = new Set();
+
+    while (queue.length) {
+      const item = queue.shift();
+      const res = editorResolve(item.key, item.domain, item.domain);
+      if (res.status !== 'ok' || res.key === '_') continue;
+      const id = res.domain + ':' + res.key;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      if (isRedirect(res.value)) continue;
+      entries.set(id, res.value);
+      domains.set(res.domain, domainName(res.domain));
+
+      for (const tok of NT.parse(res.value)) {
+        if (tok.type !== 'ref') continue;
+        const next = editorResolve(tok.ref, tok.domain, res.domain);
+        if (next.status !== 'ok' || next.key === '_' || isRedirect(next.value)) continue;
+        const targetId = next.domain + ':' + next.key;
+        aliases.set(res.domain + ':' + tok.ref, targetId);
+        aliases.set(tok.ref, targetId);
+        queue.push({ domain: next.domain, key: next.key });
+      }
+    }
+
+    return {
+      start: start.domain + ':' + start.key,
+      domains: Object.fromEntries(domains),
+      entries: Object.fromEntries(entries),
+      aliases: Object.fromEntries(aliases),
+    };
+  }
+
+  function exportRuntime() {
+    'use strict';
+    var data = window.OFFTEXT_EXPORT;
+    var entries = data.entries;
+    var domains = data.domains;
+    var aliases = data.aliases || {};
+    var expanded = new Set();
+    var app = document.getElementById('app');
+    var layer = document.getElementById('hover-layer');
+    var current = data.start;
+    var cards = [];
+    var hoverTimer = 0;
+    var pointerFine = window.matchMedia
+      ? window.matchMedia('(hover: hover) and (pointer: fine)').matches
+      : true;
+
+    function el(tag, cls, text) {
+      var node = document.createElement(tag);
+      if (cls) node.className = cls;
+      if (text != null) node.textContent = text;
+      return node;
+    }
+
+    function parse(text) {
+      var s = String(text == null ? '' : text);
+      var out = [];
+      var i = 0;
+      var start = 0;
+      while (i < s.length) {
+        if (s[i] === '^' && s[i + 1] === '[') {
+          var end = s.indexOf(']', i + 2);
+          if (end < 0) {
+            i += 2;
+            continue;
+          }
+          if (i > start) out.push({ type: 'text', text: s.slice(start, i) });
+          var inner = s.slice(i + 2, end);
+          var display = null;
+          var target = inner;
+          var bar = target.indexOf('|');
+          if (bar >= 0) {
+            display = target.slice(0, bar).trim();
+            target = target.slice(bar + 1);
+          }
+          var domain = null;
+          var at = /^(.+)@([A-Za-z0-9_.-]+)$/.exec(target.trim());
+          if (at) {
+            target = at[1];
+            domain = at[2];
+          }
+          out.push({
+            type: 'ref',
+            inner: inner,
+            display: display,
+            ref: target.trim(),
+            domain: domain,
+          });
+          i = end + 1;
+          start = i;
+        } else {
+          i++;
+        }
+      }
+      if (start < s.length) out.push({ type: 'text', text: s.slice(start) });
+      return out;
+    }
+
+    function splitId(id) {
+      var cut = id.indexOf(':');
+      return { domain: id.slice(0, cut), key: id.slice(cut + 1) };
+    }
+
+    function inDomain(name, domain) {
+      var id = domain + ':' + name;
+      return entries[id] == null ? null : { id: id, domain: domain, key: name, value: entries[id] };
+    }
+
+    function resolve(name, domain, context) {
+      if (!name || name === '_' || name.charAt(0) === '@') return null;
+      var alias = aliases[(context || '') + ':' + name] || aliases[name];
+      if (alias && entries[alias] != null) {
+        var parts = splitId(alias);
+        return { id: alias, domain: parts.domain, key: parts.key, value: entries[alias] };
+      }
+      if (domain) return inDomain(name, domain);
+      if (context) {
+        var hit = inDomain(name, context);
+        if (hit) return hit;
+      }
+      for (var d in domains) {
+        var found = inDomain(name, d);
+        if (found) return found;
+      }
+      return null;
+    }
+
+    function closeCards(from) {
+      var start = from ? cards.indexOf(from) : 0;
+      if (start < 0) return;
+      for (var i = start; i < cards.length; i++) cards[i].remove();
+      cards = cards.slice(0, start);
+      layer.hidden = cards.length === 0;
+    }
+
+    function place(card, anchor) {
+      var r = anchor.getBoundingClientRect();
+      var b = card.getBoundingClientRect();
+      var left = r.left + 8;
+      var top = r.bottom + 8;
+      if (left + b.width > innerWidth - 12) left = r.right - b.width - 8;
+      if (top + b.height > innerHeight - 12) top = r.top - b.height - 8;
+      card.style.left = Math.max(12, left) + 'px';
+      card.style.top = Math.max(12, top) + 'px';
+    }
+
+    function hoverText(value, domain, depth, parent) {
+      var box = el('div');
+      parse(value).forEach(function (tok) {
+        if (tok.type === 'text') {
+          box.append(document.createTextNode(tok.text));
+          return;
+        }
+        var res = resolve(tok.ref, tok.domain, domain);
+        var label = el('span', 'nt-ref', tok.display || tok.ref);
+        label.style.setProperty('--hue', String((20 + depth * 30) % 360));
+        if (!res) {
+          label.classList.add('is-missing');
+          box.append(label);
+          return;
+        }
+        label.title = '^[' + tok.inner + ']';
+        label.addEventListener('mouseenter', function () {
+          showCard(res, label, parent);
+        });
+        label.addEventListener('mouseleave', function () {
+          if (parent) parent.__closeTimer = setTimeout(function () {
+            closeCards(parent);
+          }, 200);
+        });
+        label.addEventListener('click', function (event) {
+          if ((event.ctrlKey || event.metaKey) && pointerFine) {
+            event.preventDefault();
+            closeCards();
+            openRoot(res.id);
+          }
+        });
+        box.append(label);
+      });
+      return box;
+    }
+
+    function showCard(res, anchor, parent) {
+      if (!pointerFine) return;
+      if (parent) {
+        clearTimeout(parent.__closeTimer);
+        var existing = cards.indexOf(parent);
+        if (existing >= 0) closeCards(cards[existing + 1]);
+      }
+      var card = el('div', 'export-hover');
+      card.__anchor = anchor;
+      var head = el('div');
+      head.append(el('strong', 'export-hover-title', res.key));
+      head.append(el('span', 'export-hover-domain', domains[res.domain] || res.domain));
+      card.append(head);
+      card.append(hoverText(res.value, res.domain, 1, card));
+      layer.hidden = false;
+      layer.append(card);
+      cards.push(card);
+      card.style.visibility = 'hidden';
+      place(card, anchor);
+      card.style.visibility = '';
+      card.addEventListener('mouseenter', function () {
+        clearTimeout(card.__closeTimer);
+      });
+      card.addEventListener('mouseleave', function () {
+        card.__closeTimer = setTimeout(function () {
+          closeCards(card);
+        }, 220);
+      });
+    }
+
+    function renderText(container, text, domain, depth, ancestors, prefix, inline) {
+      String(text)
+        .split(/\n+/)
+        .filter(function (p) {
+          return p.trim() !== '';
+        })
+        .forEach(function (paragraph) {
+          var block = el(inline ? 'span' : 'div', 'nt-block' + (inline ? ' is-inline' : ''));
+          var line = el('span', 'nt-line');
+          var refIndex = 0;
+          parse(paragraph).forEach(function (tok) {
+            if (tok.type === 'text') {
+              line.append(el('span', 'nt-text', tok.text));
+              return;
+            }
+            var path = prefix ? prefix + '.' + refIndex : String(refIndex);
+            refIndex++;
+            line.append(renderRef(tok, path, domain, depth, ancestors));
+          });
+          block.append(line);
+          container.append(block);
+        });
+    }
+
+    function renderRef(tok, path, domain, depth, ancestors) {
+      var wrap = el('span', 'nt-refwrap');
+      wrap.style.setProperty('--hue', String((20 + depth * 30) % 360));
+      var res = resolve(tok.ref, tok.domain, domain);
+      var btn = el('button', 'nt-ref', tok.display || tok.ref);
+      btn.type = 'button';
+      btn.style.setProperty('--hue', String((20 + depth * 30) % 360));
+      if (!res) {
+        btn.classList.add('is-missing');
+        btn.title = '找不到目標';
+        wrap.append(btn);
+        return wrap;
+      }
+      btn.title = '^[' + tok.inner + ']：點擊展開' + (pointerFine ? '；Ctrl/⌘+點擊開啟' : '');
+      btn.addEventListener('click', function (event) {
+        if ((event.ctrlKey || event.metaKey) && pointerFine) {
+          event.preventDefault();
+          openRoot(res.id);
+          return;
+        }
+        if (expanded.has(path)) expanded.delete(path);
+        else expanded.add(path);
+        renderRoot();
+      });
+      btn.addEventListener('mouseenter', function () {
+        showCard(res, btn, null);
+      });
+      btn.addEventListener('mouseleave', function () {
+        if (!cards.length) return;
+        var card = cards[cards.length - 1];
+        card.__closeTimer = setTimeout(function () {
+          closeCards(card);
+        }, 260);
+      });
+      wrap.append(btn);
+
+      if (expanded.has(path) && !ancestors.has(res.id) && depth < 6) {
+        var nextAncestors = new Set(ancestors);
+        nextAncestors.add(res.id);
+        var exp = el('span', 'nt-exp-inline');
+        exp.style.setProperty('--hue', String((20 + (depth + 1) * 30) % 360));
+        renderText(exp, res.value, res.domain, depth + 1, nextAncestors, path, true);
+        wrap.append(exp);
+      } else if (expanded.has(path) && ancestors.has(res.id)) {
+        wrap.append(el('span', 'nt-note', '↺ 循環'));
+      } else if (expanded.has(path) && depth >= 6) {
+        wrap.append(el('span', 'nt-note', '…已達深度上限'));
+      }
+      return wrap;
+    }
+
+    function openRoot(id) {
+      current = id;
+      expanded.clear();
+      closeCards();
+      renderRoot();
+      window.scrollTo(0, 0);
+    }
+
+    function renderRoot() {
+      var parts = splitId(current);
+      app.textContent = '';
+      var kicker = el('div', 'entry-kicker', domains[parts.domain] || parts.domain);
+      var title = el('h1', 'entry-title', parts.key);
+      app.append(kicker, title);
+      var doc = el('div');
+      renderText(doc, entries[current] || '', parts.domain, 0, new Set([current]), '', false);
+      app.append(doc);
+      document.title = parts.key + ' · 巢式文字';
+    }
+
+    if (layer) layer.addEventListener('mouseenter', function () {
+      cards.forEach(function (card) {
+        clearTimeout(card.__closeTimer);
+      });
+    });
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape') closeCards();
+    });
+    renderRoot();
+  }
+
+  function buildExportHtml() {
+    const payload = buildExportPayload();
+    if (!payload) return '';
+    const theme =
+      document.documentElement.getAttribute('data-theme') ||
+      (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+        ? 'dark'
+        : 'light');
+    const start = payload.start;
+    const cut = start.indexOf(':');
+    const title = start.slice(cut + 1) + ' · ' + (payload.domains[start.slice(0, cut)] || '');
+    const json = JSON.stringify(payload).replace(/</g, '\\u003c');
+    return (
+      '<!doctype html>\n<html lang="zh-Hant" data-theme="' +
+      htmlEscape(theme) +
+      '">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n<title>' +
+      htmlEscape(title) +
+      '</title>\n<style>' +
+      EXPORT_CSS +
+      '</style>\n</head>\n<body>\n<main id="app"></main><div id="hover-layer" class="export-hover-layer" hidden></div>\n<script>window.OFFTEXT_EXPORT=' +
+      json +
+      ';<\/script>\n<script>(' +
+      exportRuntime.toString() +
+      ')();<\/script>\n</body>\n</html>\n'
+    );
+  }
+
+  function exportCurrentPage() {
+    const html = buildExportHtml();
+    if (!html) {
+      showToast('目前條目沒有可匯出的內容');
+      return;
+    }
+    const name =
+      (state.root.domain + '-' + state.root.key)
+        .replace(/[\\/:*?"<>|\s]+/g, '-')
+        .slice(0, 80) + '.html';
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = name;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    showToast('已匯出 ' + name);
+  }
+
   /* ---------- 初始化 ---------- */
 
   const legend = $('#legendRow');
@@ -4065,18 +4969,54 @@
 
   if (SETTINGS) SETTINGS.init({ onChange: handleSettingsChange });
 
+  function paintUiMode() {
+    const buttons = [...document.querySelectorAll('#uiSeg button')];
+    buttons.forEach((button) => {
+      const active = button.dataset.ui === state.uiMode;
+      button.classList.toggle('is-active', active);
+      button.setAttribute('aria-pressed', String(active));
+      button.disabled = FORCED_MOBILE && button.dataset.ui === 'desktop';
+    });
+    const hint = $('#uiHint');
+    if (hint) {
+      hint.textContent = FORCED_MOBILE
+        ? '此裝置是手機／平板，固定使用簡化介面，不能切回桌面模式。'
+        : '手機模式不載入 CodeMirror、不顯示編輯功能，啟動時直接載入全部科目。';
+    }
+  }
+
+  function setUiMode(mode) {
+    if (FORCED_MOBILE || (mode !== 'desktop' && mode !== 'mobile')) return;
+    if (mode === state.uiMode) return;
+    try {
+      localStorage.setItem(UI_KEY, mode);
+    } catch (e) {
+      /* 私密模式 */
+    }
+    try {
+      const url = new URL(location.href);
+      url.searchParams.delete('ui');
+      history.replaceState(null, '', url.pathname + url.search + url.hash);
+    } catch (e) {
+      /* 忽略 */
+    }
+    location.reload();
+  }
+
+  document.querySelectorAll('#uiSeg button').forEach((button) => {
+    button.addEventListener('click', () => setUiMode(button.dataset.ui));
+  });
+  paintUiMode();
+
   fillSubjectSelect();
   initRankNav();
   initReadHistory();
 
   subjectSelect.addEventListener('change', (e) => {
     const id = e.target.value;
+    if (!id) return;
     if (state.view === 'index') {
-      navigateIndex(id || 'all');
-      return;
-    }
-    if (!id) {
-      navigateIndex('all');
+      navigateIndex(id);
       return;
     }
     const domain = state.index.byId.get(id);
@@ -4192,6 +5132,7 @@
     saveDrafts();
   });
   orphanBtn.addEventListener('click', toggleOrphanPanel);
+  exportBtn.addEventListener('click', exportCurrentPage);
 
   document.addEventListener('keydown', (e) => {
     if (SETTINGS && SETTINGS.isOpen()) return;
@@ -4246,11 +5187,43 @@
       state,
       drafts: () => [...drafts.values()],
       validateDrafts,
+      buildExportHtml,
     };
   }
 
   const dataParam = query.get('data');
-  if (dataParam && /^https?:$/.test(location.protocol)) {
+
+  async function bootMobile() {
+    document.body.classList.add('is-booting');
+    boot.hidden = false;
+    bootCatalog.hidden = true;
+    bootOpen.hidden = true;
+    bootOpenSelected.hidden = true;
+    bootStatus.textContent = '載入全部科目…';
+    if (DATA) {
+      await ensureCM();
+      bootWithDomains(DATA);
+      return;
+    }
+    if (location.protocol === 'file:') {
+      bootStatus.textContent = '手機模式需要 HTTP 才能自動載入全部科目；file:// 的選檔功能已關閉。';
+      return;
+    }
+    if (!TSV_MANIFEST.length) {
+      bootStatus.textContent = '找不到科目清單（tsv-manifest.js）。';
+      return;
+    }
+    try {
+      const loaded = await fetchDomainFiles(TSV_MANIFEST);
+      bootWithDomains(loaded);
+    } catch (e) {
+      bootStatus.textContent = '載入失敗：' + (e && e.message ? e.message : e);
+    }
+  }
+
+  if (state.uiMode === 'mobile') {
+    bootMobile();
+  } else if (dataParam && /^https?:$/.test(location.protocol)) {
     const ids = dataParam
       .split(',')
       .map((id) => id.trim())
@@ -4260,9 +5233,9 @@
       bootStatus.textContent = '?data= 沒有指定科目。';
     }
   } else if (dataParam) {
-    bootStatus.textContent = 'file:// 不支援 fetch；請用下方「選擇本機 TSV…」開啟。';
+    bootStatus.textContent = 'file:// 不支援 fetch；請用「選擇本機 TSV…」開啟。';
   } else if (DATA) {
-    bootWithDomains(DATA);
+    ensureCM().then(() => bootWithDomains(DATA));
   } else {
     document.body.classList.add('is-booting');
     boot.hidden = false;

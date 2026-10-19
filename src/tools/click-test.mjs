@@ -242,7 +242,8 @@ const index = await evaluate(`(async () => {
     active: document.querySelector('.index-tab.is-active')?.textContent,
   };
 
-  document.querySelector('.index-tab[data-domain="all"]').click();
+  document.querySelector('.index-tab[data-domain="all"]')?.click();
+  location.hash = '#/index/all';
   await new Promise((r) => setTimeout(r, 250));
   const all = {
     hash: location.hash,
