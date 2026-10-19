@@ -102,7 +102,7 @@ data/math.tsv                     id=math, name=數學
 data/physics.tsv                  id=physics, name=物理
 data/earthscience.tsv             id=earthscience, name=地球科學
 data/chinese.tsv                  id=chinese, name=國語文
-data/computing.tsv                id=computing, name=資訊科技
+data/computing.tsv                id=computing, name=信息技術
 data/civics.tsv                   id=civics, name=公民與法治
 data/art.tsv                      id=art, name=藝術
 data/aijargon.tsv                 id=aijargon, name=AI 術語
@@ -563,7 +563,7 @@ toolbar 最右邊的扳手（`#settingsBtn`）開啟模態設置頁（`#settings
 | 物理 | `physics.tsv` | 82 |
 | 地球科學 | `earthscience.tsv` | 105 |
 | 國語文 | `chinese.tsv` | 140 |
-| 資訊科技 | `computing.tsv` | 112 |
+| 信息技術 | `computing.tsv` | 112 |
 | 公民與法治 | `civics.tsv` | 109 |
 | 藝術 | `art.tsv` | 91 |
 | AI 術語 | `aijargon.tsv` | 193 |
@@ -571,7 +571,7 @@ toolbar 最右邊的扳手（`#settingsBtn`）開啟模態設置頁（`#settings
 | 財商 | `fq.tsv` | 113 |
 
 - 索引總計：1,818 條（不含首頁與 `@` 對照頁）。
-- 全資料 audit：1,818 內容條目＋222 對照頁、2,567 個引用。
+- 全資料 audit：1,818 內容條目＋290 對照頁、2,512 個引用。
 - 斷鏈：0。
 - 壞別名：0。
 - 引用圖中回到自己的條目：556。

@@ -43,7 +43,10 @@ const manifest = domains.map((domain) => ({
   hidden: !!domain.hidden,
   group: domain.group || '其他',
   count: Object.keys(domain.entries).filter(
-    (key) => key !== '_' && !String(domain.entries[key]).trim().startsWith('@')
+    (key) =>
+      key !== '_' &&
+      !String(key).startsWith('@') &&
+      !String(domain.entries[key]).trim().startsWith('@')
   ).length,
 }));
 fs.writeFileSync(
@@ -54,9 +57,9 @@ fs.writeFileSync(
     ';\n'
 );
 
-const counts = domains
-  .filter((domain) => !domain.hidden)
-  .map((domain) => `${domain.id}=${Object.keys(domain.entries).length}`)
+const counts = manifest
+  .filter((item) => !item.hidden)
+  .map((item) => `${item.id}=${item.count}`)
   .join(', ');
 console.log(`build/ 已更新（不含 data.js；tsv-manifest.js 只列檔名）`);
 console.log(`TSV 驗證：${counts}`);

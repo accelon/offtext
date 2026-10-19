@@ -53,7 +53,13 @@ function countEntries(text) {
     if (!line.trim() || /^\s*\{.*\}\s*$/.test(line)) continue;
     const tab = line.indexOf('\t');
     const key = (tab < 0 ? line : line.slice(0, tab)).trim();
-    if (key && key !== '_' && !String(line.slice(tab + 1)).trim().startsWith('@')) n++;
+    if (
+      key &&
+      key !== '_' &&
+      !String(key).startsWith('@') &&
+      !String(line.slice(tab + 1)).trim().startsWith('@')
+    )
+      n++;
   }
   return n;
 }

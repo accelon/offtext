@@ -47,9 +47,9 @@ assert.equal(r2.status, 'ok');
 assert.equal(r2.key, '人工神經元');
 
 // 5. 找不到
-const r3 = NT.resolve(index, '內存');
+const r3 = NT.resolve(index, '量子計算機');
 assert.equal(r3.status, 'missing');
-assert.ok(NT.suggest(index, '內存', 3).length >= 0);
+assert.ok(NT.suggest(index, '量子計算機', 3).length >= 0);
 
 // 6. _ 只能以指定 domain 的方式取得
 assert.equal(NT.resolve(index, '_', 'aijargon').status, 'ok');
