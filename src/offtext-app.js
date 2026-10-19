@@ -4447,7 +4447,7 @@
     ['all', '全部'],
     ['zero', '零連結'],
     ['cross', '跨領域'],
-    ['both', '兩邊都有'],
+    ['both', '有順有逆'],
   ];
   const INDEX_SORTS = [
     ['product', '乘積（順×逆）'],
