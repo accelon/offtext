@@ -92,7 +92,11 @@ class CancelInsertedWidget extends WidgetType {
       event.preventDefault();
       event.stopPropagation();
       view.dispatch({
-        changes: { from: this.mark.from, to: this.mark.to, insert: '' },
+        // 只移除系統加的 ^[ 與 ]，保留被標記的詞本身。
+        changes: [
+          { from: this.mark.from, to: this.mark.from + 2, insert: '' },
+          { from: this.mark.to - 1, to: this.mark.to, insert: '' },
+        ],
         effects: insertedEffect.of({ remove: this.mark.id }),
       });
       const ctx = view.cmContext;

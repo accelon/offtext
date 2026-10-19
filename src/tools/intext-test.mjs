@@ -131,6 +131,7 @@ const cancelled = await evaluate(`(async () => {
   return {
     cancel: document.querySelectorAll('.cm-cancel-insert').length,
     docHas: root?.__cmView?.state.doc.toString().includes('^[權重]'),
+    docHasWord: root?.__cmView?.state.doc.toString().includes('權重'),
     pending: document.querySelectorAll('.backlink.is-pending').length,
   };
 })()`);
