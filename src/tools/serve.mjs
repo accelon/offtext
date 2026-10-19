@@ -184,7 +184,14 @@ const server = http.createServer(async (req, res) => {
     } else if (req.method === 'POST' && url.pathname.startsWith('/api/tsv/')) {
       await saveTsv(req, res, url.pathname.slice('/api/tsv/'.length));
     } else if (req.method === 'GET' || req.method === 'HEAD') {
-      await serveStatic(req, res, url);
+      // 根目錄要轉到 /build/index.html；若直接回傳 index.html，
+      // 相對路徑的 nestedtext.css／js 會解析成 /nestedtext.css，畫面就沒有樣式。
+      if (url.pathname === '/') {
+        res.writeHead(302, { location: '/build/index.html' });
+        res.end();
+      } else {
+        await serveStatic(req, res, url);
+      }
     } else {
       res.writeHead(405, { 'content-type': 'text/plain; charset=utf-8' });
       res.end('method not allowed');
