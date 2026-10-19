@@ -11,7 +11,8 @@ const SHOTS = path.join(ROOT, 'build', 'shots');
 const EDGE = 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe';
 const PORT = 9340;
 const PROFILE = fs.mkdtempSync(path.join(os.tmpdir(), 'nt-mobile-'));
-const PAGE = 'http://127.0.0.1:8123/build/index.html?theme=light';
+const PAGE = process.argv[2] || 'http://127.0.0.1:8123/build/index.html?theme=light';
+const PAGE_HOST = new URL(PAGE).host;
 
 const child = spawn(
   EDGE,
@@ -33,7 +34,7 @@ let page;
 for (let i = 0; i < 80 && !page; i++) {
   try {
     const list = await (await fetch(`http://127.0.0.1:${PORT}/json/list`)).json();
-    page = list.find((t) => t.type === 'page' && t.url.startsWith('http://127.0.0.1:8123'));
+    page = list.find((t) => t.type === 'page' && t.url.includes(PAGE_HOST));
   } catch (e) {
     /* 等它起來 */
   }

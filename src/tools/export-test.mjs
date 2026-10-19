@@ -111,7 +111,7 @@ console.log('payload', {
   badAlias: Object.values(payload.entries).filter((value) => String(value).trim().startsWith('@')).length,
 });
 
-const out = path.join(BUILD, 'export-test.html');
+const out = path.join(os.tmpdir(), 'offtext-export-test.html');
 fs.writeFileSync(out, html);
 const fileUrl = pathToFileURL(out).href;
 await send('Page.navigate', { url: fileUrl });
@@ -162,6 +162,11 @@ child.kill();
 await sleep(300);
 try {
   fs.rmSync(PROFILE, { recursive: true, force: true });
+} catch (e) {
+  /* 忽略 */
+}
+try {
+  fs.rmSync(out, { force: true });
 } catch (e) {
   /* 忽略 */
 }
