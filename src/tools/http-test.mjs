@@ -14,8 +14,8 @@ const SHOTS = path.join(BUILD, 'shots');
 const EDGE = 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe';
 const PORT = 9335;
 const PROFILE = fs.mkdtempSync(path.join(os.tmpdir(), 'nt-http-'));
-const HTTP_PAGE = 'http://127.0.0.1:8123/build/index.html?test=1';
-const FILE_PAGE = pathToFileURL(path.join(BUILD, 'index.html')).href;
+const HTTP_PAGE = 'http://127.0.0.1:8123/build/index.html?test=1&edit=1';
+const FILE_PAGE = pathToFileURL(path.join(BUILD, 'index.html')).href + '?edit=1';
 const API = 'http://127.0.0.1:8123';
 
 if (!fs.existsSync(EDGE)) {
@@ -311,7 +311,7 @@ try {
 
   // ?data= 仍可直接載入。
   await send('Page.navigate', {
-    url: 'http://127.0.0.1:8123/build/index.html?data=biology,chemistry',
+    url: 'http://127.0.0.1:8123/build/index.html?data=biology,chemistry&edit=1',
   });
   await waitFor('document.readyState === "complete"', 'data ready');
   await waitFor('document.querySelector("#boot").hidden', 'data boot hidden');

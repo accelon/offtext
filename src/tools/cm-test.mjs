@@ -13,7 +13,7 @@ const PORT = Number(process.env.CM_CDP_PORT || 9341);
 const PROFILE = fs.mkdtempSync(path.join(os.tmpdir(), 'nt-cm-'));
 const URL =
   process.argv.find((a) => a.startsWith('--url='))?.slice(6) ||
-  'http://127.0.0.1:8123/build/index.html?data=aijargon&test=1';
+  'http://127.0.0.1:8123/build/index.html?data=aijargon&test=1&edit=1';
 const HEADFUL = process.argv.includes('--headful');
 const SHOT = process.argv.find((a) => a.startsWith('--shot='))?.slice(6) || 'cm-entry.png';
 

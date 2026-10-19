@@ -4,8 +4,9 @@
   "private": true,
   "description": "巢式文字 Offtext：以 CodeMirror 6 編輯與閱讀同一份巢狀文字。",
   "scripts": {
+    "build:app": "node src/tools/build-app.mjs",
     "build:editor": "node src/tools/build-editor.mjs",
-    "build": "node src/tools/build-editor.mjs && node src/tools/build.mjs",
+    "build": "node src/tools/build-app.mjs && node src/tools/build-editor.mjs && node src/tools/build.mjs",
     "serve": "node src/tools/serve.mjs",
     "test:core": "node src/tools/test-core.mjs",
     "test:editor": "node src/tools/cm-test.mjs",

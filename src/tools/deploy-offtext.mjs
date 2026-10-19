@@ -199,6 +199,7 @@ try {
     BASE_URL + '?v=' + stamp,
     BASE_URL + 'tsv-manifest.js?v=' + stamp,
     BASE_URL + 'offtext-cm.js?v=' + stamp,
+    BASE_URL + 'offtext-app.js?v=' + stamp,
     BASE_URL + 'data/modern-chinese-history.tsv?v=' + stamp,
   ];
   for (const url of checks) {
@@ -206,10 +207,11 @@ try {
     const text = await res.text();
     if (!res.ok) die('驗證失敗 ' + url + ' → HTTP ' + res.status);
     if (url === checks[0] && !text.includes('巢式文字')) die('首頁內容不像 offtext');
-    if (url === checks[0] && !text.includes('nestedtext.js')) die('首頁沒有載入 app');
+    if (url === checks[0] && !text.includes('offtext-app.js')) die('首頁沒有載入 app');
     if (url === checks[1] && !text.includes('OFFTEXT_TSV_MANIFEST')) die('manifest 內容不正確');
     if (url === checks[2] && !text.includes('OfftextCM')) die('CM6 bundle 內容不正確');
-    if (url === checks[3] && !text.includes('{id:"modern-chinese-history"')) die('TSV 內容不正確');
+    if (url === checks[3] && !text.includes('READONLY_ONLY')) die('app bundle 內容不正確');
+    if (url === checks[4] && !text.includes('{id:"modern-chinese-history"')) die('TSV 內容不正確');
     console.log('✓ ' + url + '  HTTP ' + res.status + '  ' + Buffer.byteLength(text) + ' bytes');
   }
   console.log('完成：' + BASE_URL);

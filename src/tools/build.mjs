@@ -18,7 +18,7 @@ const APP_FILES = [
   'nestedtext-simplified.js',
   'nestedtext-settings.js',
   'offtext-cm.js',
-  'nestedtext.js',
+  'offtext-app.js',
 ];
 
 // 清掉 build 頂層的舊產物，但保留 build/shots（展示截圖）。

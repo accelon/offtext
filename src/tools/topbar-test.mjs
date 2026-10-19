@@ -13,7 +13,7 @@ const PORT = 9344;
 const PROFILE = fs.mkdtempSync(path.join(os.tmpdir(), 'nt-topbar-'));
 const WIDTH = Number(process.argv.find((arg) => arg.startsWith('--width='))?.split('=')[1]) || 1280;
 const PAGE =
-  'http://127.0.0.1:8123/build/index.html?data=aijargon&test=1#/aijargon/' +
+  'http://127.0.0.1:8123/build/index.html?data=aijargon&test=1&edit=1#/aijargon/' +
   encodeURIComponent('權重');
 
 const child = spawn(

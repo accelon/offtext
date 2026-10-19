@@ -16,7 +16,7 @@ const PORT = 9341;
 const PROFILE = fs.mkdtempSync(path.join(os.tmpdir(), 'nt-export-'));
 const PAGE =
   pathToFileURL(path.join(BUILD, 'index.html')).href +
-  '?theme=light&test=1#/aijargon/' +
+  '?theme=light&test=1&edit=1#/aijargon/' +
   encodeURIComponent('人工神經元');
 
 const child = spawn(

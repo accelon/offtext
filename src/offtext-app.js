@@ -1,13 +1,16 @@
-/* 巢式文字 MVP
- * 單欄流式版面：條目正文在中間，資料表由「索引」頁與頂欄搜尋進入。
- * 展開路徑以「引用在文件中的序號鏈」表示，例如 0.2.1；
- * 同一 key 出現在不同位置時，收合狀態互不干擾。
+/* GENERATED FILE — 由 src/tools/build-app.mjs 串接 src/app/*.js。
+ * 不要直接改這個檔；改 src/app/ 後重跑 npm run build:app。
  */
 (function () {
-  'use strict';
+'use strict';
 
+/* ---- 00-core.js ---- */
+/* 共用狀態、設定、網域與小工具
+ * 由 src/nestedtext.js 拆出；建置時依檔名順序串成同一個 IIFE。
+ */
   const NT = window.NT;
   const SETTINGS = window.OfftextSettings || null;
+  const READONLY_ONLY = !!window.OFFTEXT_READONLY_ONLY;
 
   if (!NT) {
     document.getElementById('reader').textContent = '載入失敗：找不到 nestedtext-core.js。';
@@ -113,6 +116,7 @@
     : [];
 
   document.body.classList.toggle('is-mobile-ui', state.uiMode === 'mobile');
+  document.body.classList.toggle('is-readonly-online', READONLY_ONLY);
 
   // 舊網址／舊書籤仍可用；資料檔本身已改成 kebab-case。
   const DOMAIN_ALIASES = new Map([
@@ -238,6 +242,10 @@
   rebuildSearchEntries();
   updateStats();
 
+/* ---- 10-boot.js ---- */
+/* 閱讀歷史、啟動頁、TSV 載入
+ * 由 src/nestedtext.js 拆出；建置時依檔名順序串成同一個 IIFE。
+ */
   /* ---------- 閱讀歷史 ---------- */
 
   const READ_HISTORY_KEY = 'offtext.readHistory.v1';
@@ -666,6 +674,10 @@
   bootOpen.addEventListener('click', openTsvFiles);
   bootOpenSelected.addEventListener('click', openSelectedCatalog);
 
+/* ---- 20-edit-legacy.js ---- */
+/* 舊 textarea 編輯器與建議標記
+ * 由 src/nestedtext.js 拆出；建置時依檔名順序串成同一個 IIFE。
+ */
   /* ---------- 編輯與建議標記 ---------- */
 
   const addTermBtn = el('button', 'add-term-btn', '＋ 新增詞目');
@@ -1484,7 +1496,7 @@
   }
 
   function showInTextSearch(domainId, key) {
-    if (dirtyOverlay) return;
+    if (READONLY_ONLY || dirtyOverlay) return;
     const groups = findUnlinkedMentions(domainId, key);
     if (!groups.length) {
       showToast('本科其他內文沒有找到「' + key + '」的可標記處');
@@ -1562,6 +1574,10 @@
     recoOverlay = backdrop;
   }
 
+/* ---- 21-edit-cm.js ---- */
+/* CodeMirror 編輯、草稿、存檔
+ * 由 src/nestedtext.js 拆出；建置時依檔名順序串成同一個 IIFE。
+ */
   /* ---------- CodeMirror 內嵌編輯 ---------- */
 
   let CM = window.OfftextCM || null;
@@ -1629,6 +1645,12 @@
   }
 
   function updateSaveUi() {
+    if (READONLY_ONLY) {
+      for (const button of [saveBtn, editBtn, orphanBtn, exportBtn, dirtyBtn]) {
+        if (button) button.hidden = true;
+      }
+      return;
+    }
     const count = drafts.size;
     if (saveBtn) {
       const hidden = count === 0;
@@ -1826,7 +1848,7 @@
       domain: state.root.domain,
       key: state.root.key,
       depth: 0,
-      editing: state.editing,
+      editing: !READONLY_ONLY && state.editing,
       maxDepth: NT.MAX_DEPTH,
       host: makeEditorHost(state.root.domain, state.root.key),
     });
@@ -1869,7 +1891,7 @@
   }
 
   function setEditing(flag) {
-    if (state.uiMode === 'mobile') return;
+    if (READONLY_ONLY || state.uiMode === 'mobile') return;
     const next = !!flag;
     if (next && (state.view !== 'entry' || !entryController)) {
       showToast('請先開啟一個條目');
@@ -1891,7 +1913,7 @@
   }
 
   function openEntryForEdit(domain, key) {
-    if (state.uiMode === 'mobile' || isReservedKey(key)) return;
+    if (READONLY_ONLY || state.uiMode === 'mobile' || isReservedKey(key)) return;
     if (!CM) {
       // 罕見的 bundle 載入失敗：退回舊版 textarea 編輯器，至少還能編。
       const exists = baseValue(domain, key) !== undefined;
@@ -1911,7 +1933,7 @@
   }
 
   function openNewEntry(domain, key) {
-    if (state.uiMode === 'mobile') return;
+    if (READONLY_ONLY || state.uiMode === 'mobile') return;
     const name = String(key == null ? '' : key).trim();
     if (!name) return;
     if (/[@|\[\]\n\t]/.test(name)) {
@@ -2130,6 +2152,10 @@
     return true;
   }
 
+/* ---- 22-orphans.js ---- */
+/* 孤兒節點與缺目標
+ * 由 src/nestedtext.js 拆出；建置時依檔名順序串成同一個 IIFE。
+ */
   /* ---------- 孤兒節點 ---------- */
 
   function computeOrphans(domainId) {
@@ -2335,6 +2361,10 @@
     };
   }
 
+/* ---- 30-route.js ---- */
+/* 路由與導覽
+ * 由 src/nestedtext.js 拆出；建置時依檔名順序串成同一個 IIFE。
+ */
   /* ---------- 路由 ---------- */
 
   function readRoute() {
@@ -2649,6 +2679,10 @@
     updateRankNav();
   }
 
+/* ---- 31-focus.js ---- */
+/* 展開狀態與焦點
+ * 由 src/nestedtext.js 拆出；建置時依檔名順序串成同一個 IIFE。
+ */
   /* ---------- 展開狀態與焦點 ---------- */
 
   function nearestOpenAncestor(path) {
@@ -2679,6 +2713,10 @@
     render({ focusPath: path });
   }
 
+/* ---- 40-read.js ---- */
+/* DOM 閱讀渲染與反鏈接
+ * 由 src/nestedtext.js 拆出；建置時依檔名順序串成同一個 IIFE。
+ */
   /* ---------- 渲染 ---------- */
 
   function renderDoc(text, depth, prefix, ancestors, inlineContext, contextDomain) {
@@ -3053,6 +3091,10 @@
     return nav;
   }
 
+/* ---- 41-hover.js ---- */
+/* Hover popup
+ * 由 src/nestedtext.js 拆出；建置時依檔名順序串成同一個 IIFE。
+ */
   /* ---------- Hover popup（桌面閱讀） ---------- */
 
   const hoverLayer = el('div', 'hover-layer');
@@ -3225,6 +3267,10 @@
     }
   });
 
+/* ---- 42-entry.js ---- */
+/* 條目頁、文內搜尋插入與標記
+ * 由 src/nestedtext.js 拆出；建置時依檔名順序串成同一個 IIFE。
+ */
   /* ---------- 條目頁 ---------- */
 
   function pendingBacklinkFor(targetId) {
@@ -3398,6 +3444,10 @@
     }
   }
 
+/* ---- 50-graph.js ---- */
+/* 圖譜
+ * 由 src/nestedtext.js 拆出；建置時依檔名順序串成同一個 IIFE。
+ */
   /* ---------- 圖譜 ---------- */
 
   const GRAPH_MAX_NODES = 48;
@@ -4458,6 +4508,10 @@
     return box;
   }
 
+/* ---- 60-search.js ---- */
+/* 搜尋
+ * 由 src/nestedtext.js 拆出；建置時依檔名順序串成同一個 IIFE。
+ */
   /* ---------- 搜尋 ---------- */
 
   let searchHits = [];
@@ -4520,6 +4574,10 @@
     items[next].focus();
   }
 
+/* ---- 70-export.js ---- */
+/* Export 單一 HTML
+ * 由 src/nestedtext.js 拆出；建置時依檔名順序串成同一個 IIFE。
+ */
   /* ---------- Export：單一 HTML ---------- */
 
   const EXPORT_CSS = `
@@ -4919,6 +4977,7 @@ html[data-theme="dark"] .export-hover{box-shadow:0 16px 40px rgba(0,0,0,.55)}
   }
 
   function exportCurrentPage() {
+    if (READONLY_ONLY) return;
     const html = buildExportHtml();
     if (!html) {
       showToast('目前條目沒有可匯出的內容');
@@ -4940,6 +4999,10 @@ html[data-theme="dark"] .export-hover{box-shadow:0 16px 40px rgba(0,0,0,.55)}
     showToast('已匯出 ' + name);
   }
 
+/* ---- 80-main.js ---- */
+/* 初始化與事件接線
+ * 由 src/nestedtext.js 拆出；建置時依檔名順序串成同一個 IIFE。
+ */
   /* ---------- 初始化 ---------- */
 
   const legend = $('#legendRow');
@@ -5241,4 +5304,5 @@ html[data-theme="dark"] .export-hover{box-shadow:0 16px 40px rgba(0,0,0,.55)}
     boot.hidden = false;
     bootStatus.textContent = '';
   }
+
 })();

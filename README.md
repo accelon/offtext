@@ -19,6 +19,7 @@ Offtext 是一種以 `^[...]` 標記的巢狀文字：正文保持可讀，引�
 | [ui.md](ui.md) | 啟動、閱讀、編輯、索引、圖譜、hover、手機、export |
 | [basicofftag.md](basicofftag.md) | offtag 基本語法 |
 | [planning.md](planning.md) | 本次重構的原始規劃 |
+| [CONTENT_TODO.md](CONTENT_TODO.md) | 內容 DAG 待辦、token 與工時估算 |
 
 ## 快速開始
 

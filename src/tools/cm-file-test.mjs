@@ -11,7 +11,7 @@ const SHOTS = path.join(ROOT, 'build', 'shots');
 const EDGE = 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe';
 const PORT = Number(process.env.CM_FILE_CDP_PORT || 9343);
 const PROFILE = fs.mkdtempSync(path.join(os.tmpdir(), 'nt-cm-file-'));
-const PAGE = 'file:///D:/2026/offtext/build/index.html';
+const PAGE = 'file:///D:/2026/offtext/build/index.html?edit=1';
 const SHOT = 'cm-file.png';
 
 fs.mkdirSync(SHOTS, { recursive: true });

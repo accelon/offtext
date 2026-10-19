@@ -169,6 +169,17 @@
   <script src="nestedtext-simplified.js"></script>
   <script src="nestedtext-settings.js"></script>
   <script src="nestedtext-core.js"></script>
-  <script src="nestedtext.js"></script>
+  <script>
+    /* 線上只讀；本機 file:// 或 localhost 可用 ?edit=1 開啟編輯，供測試與日後 EXE 版。 */
+    (function () {
+      var local =
+        location.protocol === 'file:' ||
+        location.hostname === '127.0.0.1' ||
+        location.hostname === 'localhost';
+      var wantsEdit = new URLSearchParams(location.search).get('edit') === '1';
+      window.OFFTEXT_READONLY_ONLY = !(local && wantsEdit);
+    })();
+  </script>
+  <script src="offtext-app.js"></script>
 </body>
 </html>

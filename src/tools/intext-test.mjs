@@ -16,7 +16,7 @@ const PORT = 9342;
 const PROFILE = fs.mkdtempSync(path.join(os.tmpdir(), 'nt-intext-'));
 const PAGE =
   pathToFileURL(path.join(BUILD, 'index.html')).href +
-  '?test=1#/aijargon/' +
+  '?test=1&edit=1#/aijargon/' +
   encodeURIComponent('權重');
 
 const child = spawn(

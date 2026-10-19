@@ -2715,6 +2715,17 @@ body.is-mobile-ui .nt-line {
   }
 }
 
+/* ---------- 線上閱讀版：不提供編輯 ---------- */
+
+body.is-readonly-online #editBtn,
+body.is-readonly-online #saveBtn,
+body.is-readonly-online #orphanBtn,
+body.is-readonly-online #exportBtn,
+body.is-readonly-online #dirtyBtn,
+body.is-readonly-online .add-term-btn {
+  display: none !important;
+}
+
 /* ---------- CodeMirror 內嵌編輯／閱讀 ---------- */
 
 .edit-mode-btn,

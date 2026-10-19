@@ -134,6 +134,12 @@ const opened = await evaluate(`(async () => {
     modernName: [...document.querySelectorAll('#subject option')].some((o) => o.textContent.includes('中國近代史')),
     ancientId: [...document.querySelectorAll('#subject option')].some((o) => o.value === 'ancient-china'),
     worldId: [...document.querySelectorAll('#subject option')].some((o) => o.value === 'world-history'),
+    readonly: document.body.classList.contains('is-readonly-online'),
+    editHidden: document.querySelector('#editBtn').hidden,
+    saveHidden: document.querySelector('#saveBtn').hidden,
+    orphanHidden: document.querySelector('#orphanBtn').hidden,
+    exportHidden: document.querySelector('#exportBtn').hidden,
+    editing: !!document.querySelector('.cm-offtext-root.cm-editing'),
   };
 })()`);
 console.log('opened', JSON.stringify(opened, null, 2));

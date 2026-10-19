@@ -12,7 +12,7 @@ const EDGE = 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe'
 const PORT = Number(process.env.CM_BLOCK_CDP_PORT || 9345);
 const PROFILE = fs.mkdtempSync(path.join(os.tmpdir(), 'nt-cm-block-'));
 const URL =
-  'http://127.0.0.1:8123/build/index.html?data=aijargon&mode=block&expand=0&test=1';
+  'http://127.0.0.1:8123/build/index.html?data=aijargon&mode=block&expand=0&test=1&edit=1';
 
 const child = spawn(
   EDGE,

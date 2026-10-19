@@ -4,9 +4,24 @@
 
 ```text
 src/
-├─ index.html                 頁面骨架、啟動頁、設置頁
+├─ index.html                 頁面骨架、啟動頁、設置頁；線上只讀開關
 ├─ nestedtext-core.js         解析、查表、索引、加權、DAG（瀏覽器與 Node 共用）
-├─ nestedtext.js              路由、啟動、閱讀、編輯、索引、搜尋、圖譜、hover、手機、export
+├─ app/                       應用程式原始碼，建置時依檔名串成一個 IIFE
+│  ├─ 00-core.js              共用狀態、設定、網域與小工具
+│  ├─ 10-boot.js              閱讀歷史、啟動頁、TSV 載入
+│  ├─ 20-edit-legacy.js       舊 textarea 編輯器與建議標記
+│  ├─ 21-edit-cm.js           CodeMirror 編輯、草稿、存檔
+│  ├─ 22-orphans.js           孤兒節點與缺目標
+│  ├─ 30-route.js             路由與導覽
+│  ├─ 31-focus.js             展開狀態與焦點
+│  ├─ 40-read.js              DOM 閱讀渲染與反鏈接
+│  ├─ 41-hover.js             Hover popup
+│  ├─ 42-entry.js             條目頁、文內搜尋插入與標記
+│  ├─ 50-graph.js             圖譜
+│  ├─ 60-search.js            搜尋
+│  ├─ 70-export.js            Export 單一 HTML
+│  └─ 80-main.js              初始化與事件接線
+├─ offtext-app.js             app bundle（GENERATED，IIFE）
 ├─ nestedtext-settings.js     主題與繁簡三態
 ├─ nestedtext-simplified.js   無損／強制簡體
 ├─ simplified-data.js         繁簡對照表（GENERATED）
@@ -17,11 +32,13 @@ src/
 └─ tools/                     建置、測試、健檢、部署
 ```
 
-- **桌面**：閱讀與編輯共用同一個 `EditorView`。閱讀只是 `EditorState.readOnly`，游標仍在；編輯時取消 `readOnly`。
+- **線上只讀**：`index.html` 設定 `window.OFFTEXT_READONLY_ONLY`；部署到非 localhost 時永遠只讀。桌面與手機都只閱讀，不顯示編輯、存檔、孤兒、Export。
+- **本機測試編輯**：只有 `file://` 或 `localhost` 加 `?edit=1` 才會載入編輯功能，供測試與日後 EXE 版沿用。
+- **桌面**：閱讀使用同一個 `EditorView`；閱讀只是 `EditorState.readOnly`，游標仍在。編輯只在 `?edit=1` 的本機模式啟用。
 - **巢狀**：展開的引用在 widget 內再掛一個唯讀 `EditorView`，共用同一組 decoration／theme／resolve 規則。
 - **手機**：不載入 CM6，使用 DOM 渲染；啟動時自動載入 manifest 全部科目。
-- **hover／export**：用 DOM renderer，不建 CM6 view；export runtime 自帶解析與渲染，不依賴外部檔案。手機與 hover 的 DOM 渲染沿用 `nestedtext.js` 的 `renderDoc`／`renderRef`；export 使用獨立 runtime。
-- **lazy CM6**：`index.html` 不再直接載入 `offtext-cm.js`；桌面 boot 時才由 `ensureCM()` 注入。手機完全不下载。
+- **hover／export**：用 DOM renderer，不建 CM6 view；export runtime 自帶解析與渲染，不依賴外部檔案。手機與 hover 的 DOM 渲染沿用 `src/app/40-read.js` 的 `renderDoc`／`renderRef`。
+- **lazy CM6**：`index.html` 不直接載入 `offtext-cm.js`；桌面 boot 時才由 `ensureCM()` 注入。手機完全不下载。
 
 ## 閱讀與編輯
 
@@ -50,13 +67,13 @@ src/
 
 ```powershell
 npm install
-npm run build        # build-editor（esbuild）→ build（複製前端檔、manifest）
+npm run build        # build:app → build:editor → build（複製前端檔、manifest）
 node src/tools/serve.mjs --port 8123
 ```
 
-- 只改 CSS／`nestedtext.js` 時跑 `node src/tools/build.mjs`。
+- 改 `src/app/*.js` 時跑 `npm run build:app`；只改 CSS 時跑 `node src/tools/build.mjs`。
 - 改 `src/editor/*.js` 時要先跑 `npm run build:editor`。
-- `src/offtext-cm.js` 是產物，但保留在版本庫，讓 `file://` 直接開 `src/index.html` 也能運作。
+- `src/offtext-app.js`、`src/offtext-cm.js` 是產物，但保留在版本庫，讓 `file://` 直接開 `src/index.html` 也能運作。
 - `build/` 頂層每次重建；`build/shots/` 保留。
 
 ## 測試
