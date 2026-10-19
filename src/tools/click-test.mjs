@@ -230,45 +230,63 @@ const crossBacklink = await evaluate(`(async () => {
   };
 })()`);
 
-// 索引頁：預設只顯示目前科目，可切「全部」或指定科目。
+// 索引頁：預設全部科目，可用搜尋與連線檢視縮小範圍。
 const index = await evaluate(`(async () => {
   document.querySelector('#indexBtn').click();
-  await new Promise((r) => setTimeout(r, 250));
+  await new Promise((r) => setTimeout(r, 350));
   const first = {
     hash: location.hash,
     title: document.querySelector('.entry-title')?.textContent,
     items: document.querySelectorAll('.index-item').length,
     tabs: document.querySelectorAll('.index-tab').length,
-    active: document.querySelector('.index-tab.is-active')?.textContent,
+    active: document.querySelector('.index-tab.is-active')?.dataset.domain,
+    views: [...document.querySelectorAll('.index-view')].map((b) => b.dataset.view),
+    searchLabel: document.querySelector('.index-search-label')?.firstChild?.textContent,
   };
 
-  document.querySelector('.index-tab[data-domain="all"]')?.click();
-  location.hash = '#/index/all';
-  await new Promise((r) => setTimeout(r, 250));
-  const all = {
-    hash: location.hash,
+  const search = document.querySelector('#indexSearch');
+  search.value = '牛頓';
+  search.dispatchEvent(new Event('input', { bubbles: true }));
+  const filtered = {
     items: document.querySelectorAll('.index-item').length,
-    active: document.querySelector('.index-tab.is-active')?.textContent,
-    sections: document.querySelectorAll('.index-domain').length,
-    rankDisabled: document.querySelector('#rankImportant').disabled,
+    keys: [...document.querySelectorAll('.index-key')].map((n) => n.textContent),
+    counts: [...document.querySelectorAll('.index-view-count')].map((n) => n.textContent),
   };
+  document.querySelector('.index-search-clear').click();
+
+  document.querySelector('.index-view[data-view="zero"]').click();
+  const zeroRows = [...document.querySelectorAll('.index-item')];
+  const zero = {
+    active: document.querySelector('.index-view.is-active')?.dataset.view,
+    items: zeroRows.length,
+    allZero: zeroRows.every((row) => row.querySelector('.index-stat.is-product')?.textContent === '×0'),
+    tags: [...document.querySelectorAll('.index-zero-tag')].slice(0, 3).map((n) => n.textContent),
+  };
+
+  document.querySelector('.index-view[data-view="cross"]').click();
+  const crossRows = [...document.querySelectorAll('.index-item')];
+  const cross = {
+    active: document.querySelector('.index-view.is-active')?.dataset.view,
+    items: crossRows.length,
+    allCross: crossRows.every((row) => !!row.querySelector('.index-stat.is-cross')),
+  };
+  document.querySelector('.index-view[data-view="all"]').click();
 
   document.querySelector('.index-tab[data-domain="aijargon"]').click();
-  await new Promise((r) => setTimeout(r, 250));
+  await new Promise((r) => setTimeout(r, 350));
   const ai = {
     hash: location.hash,
     items: document.querySelectorAll('.index-item').length,
-    active: document.querySelector('.index-tab.is-active')?.textContent,
-    sections: document.querySelectorAll('.index-domain').length,
-    rankOptions: document.querySelectorAll('#rankImportant option').length - 1,
+    active: document.querySelector('.index-tab.is-active')?.dataset.domain,
+    rankSelects: ['#rankImportant', '#rankCore', '#rankHub'].filter((s) => document.querySelector(s)).length,
   };
 
-  return { first, all, ai };
+  return { first, filtered, zero, cross, ai };
 })()`);
 
 // 從索引點進條目，再測科目切換（切換科目會離開索引）。
 const subject = await evaluate(`(async () => {
-  document.querySelector('.index-item').click();
+  document.querySelector('.index-main').click();
   await new Promise((r) => setTimeout(r, 250));
   const select = document.querySelector('#subject');
   select.value = 'biology';
@@ -463,40 +481,6 @@ const viewToggle = await evaluate(`(async () => {
   return { afterGlyph, afterGText, afterGGraph, afterText };
 })()`);
 
-// 頂欄三個全科目節點下拉：選一個應直接開到該條目。
-const rankNav = await evaluate(`(async () => {
-  const wait = () => new Promise((r) => setTimeout(r, 280));
-  const important = document.querySelector('#rankImportant');
-  const core = document.querySelector('#rankCore');
-  const hub = document.querySelector('#rankHub');
-  const aiOptions = [...important.options].slice(1, 4).map((o) => o.textContent);
-  const aiHints = [...important.options].slice(1, 4).map((o) => o.title);
-
-  const subject = document.querySelector('#subject');
-  subject.value = 'biology';
-  subject.dispatchEvent(new Event('change', { bubbles: true }));
-  await wait();
-
-  const bioOptions = [...important.options].slice(1, 4).map((o) => o.textContent);
-  const bioHints = [...important.options].slice(1, 4).map((o) => o.title);
-  const value = important.options[1]?.value;
-  important.value = value;
-  important.dispatchEvent(new Event('change', { bubbles: true }));
-  await wait();
-  return {
-    aiOptions,
-    aiHints,
-    bioOptions,
-    bioHints,
-    coreCount: core.options.length - 1,
-    hubCount: hub.options.length - 1,
-    chosen: value,
-    hash: location.hash,
-    title: document.querySelector('.entry-title')?.textContent,
-    reset: important.value,
-  };
-})()`);
-
 const history = await evaluate(`(async () => {
   const entries = window.OFFTEXT_DOMAINS
     .find((domain) => domain.id === 'modern-chinese-history')
@@ -544,7 +528,6 @@ console.log(
       graph,
       graphBack,
       viewToggle,
-      rankNav,
       history,
       exceptions,
     },

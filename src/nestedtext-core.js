@@ -101,10 +101,9 @@
     // 可見的內容 domain 優先，hidden 的別名 domain 殿後。
     const order = all.filter((d) => !d.hidden).concat(all.filter((d) => d.hidden));
     const index = { order, byId };
-    // 鏈結與全科目節點排行都在同一次建索引時算好，UI 不必再掃一次。
+    // 鏈結與加權在同一次建索引時算好，UI 不必再掃一次。
     index.links = buildLinks(index);
     index.weights = buildWeights(index);
-    index.rankings = buildRankings(index);
     return index;
   }
 
@@ -491,61 +490,6 @@
   }
 
   /*
-   * 單一科目的節點排行：
-   * important = 順鏈多、core = 逆鏈多、hub = 順鏈 × 逆鏈（兩邊都多才會高）。
-   * key 是 domain id；每個科目各自排名，不混在一起。
-   */
-  function buildRankings(index, limit) {
-    const top = limit || 12;
-    const rankings = new Map();
-    const visible = index.order.filter((d) => !d.hidden);
-    const weights = index.weights;
-
-    for (const domain of visible) {
-      const rows = [];
-      for (const [key, value] of domain.entries) {
-        if (!isContentEntry(key, value)) continue;
-        const id = domain.id + ':' + key;
-        const forward = index.links.forward.get(id) ? index.links.forward.get(id).size : 0;
-        const back = index.links.backward.get(id) ? index.links.backward.get(id).size : 0;
-        const forwardWeight = weights.forward.get(id) || 0;
-        const backWeight = weights.backward.get(id) || 0;
-        const norm = weights.normalized.get(id) || { forward: 0, backward: 0, hub: 0 };
-        rows.push({
-          id,
-          domain: domain.id,
-          key,
-          forward,
-          back,
-          forwardWeight,
-          backWeight,
-          hub: forwardWeight * backWeight,
-          norm,
-        });
-      }
-
-      const ranked = (metric) =>
-        rows
-          .slice()
-          .sort(
-            (a, b) =>
-              b[metric] - a[metric] ||
-              b.forwardWeight + b.backWeight - (a.forwardWeight + a.backWeight) ||
-              a.key.localeCompare(b.key, 'zh-Hant')
-          )
-          .slice(0, top);
-
-      rankings.set(domain.id, {
-        important: ranked('forwardWeight'),
-        core: ranked('backWeight'),
-        hub: ranked('hub'),
-      });
-    }
-
-    return rankings;
-  }
-
-  /*
    * 展開形式：200 字（含）以內在點擊處內嵌，超過才放到段落之後。
    * 可由 UI 強制切成 inline / block 對照。
    */
@@ -584,7 +528,6 @@
     buildLinks,
     buildWeights,
     buildDag,
-    buildRankings,
     backlinksFor,
     lookup,
     resolve,

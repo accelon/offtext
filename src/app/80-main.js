@@ -74,12 +74,15 @@
   paintUiMode();
 
   fillSubjectSelect();
-  initRankNav();
   initReadHistory();
 
   subjectSelect.addEventListener('change', (e) => {
     const id = e.target.value;
     if (!id) return;
+    if (id === 'all') {
+      navigateIndex();
+      return;
+    }
     if (state.view === 'index') {
       navigateIndex(id);
       return;
@@ -214,7 +217,8 @@
     }
     if (e.key === '/' && !typing) {
       e.preventDefault();
-      searchInput.focus();
+      const indexSearch = state.view === 'index' ? $('#indexSearch') : null;
+      (indexSearch || searchInput).focus();
       return;
     }
     if (

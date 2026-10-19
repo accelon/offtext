@@ -114,6 +114,10 @@
 
   function fillSubjectSelect() {
     subjectSelect.textContent = '';
+    const all = document.createElement('option');
+    all.value = 'all';
+    all.textContent = '全部科目';
+    subjectSelect.append(all);
     domains.forEach((domain) => {
       const option = document.createElement('option');
       option.value = domain.id;
@@ -276,7 +280,6 @@
     rebuildSearchEntries();
     updateStats();
     fillSubjectSelect();
-    updateRankNav();
     updateDirtyUi();
 
     document.body.classList.remove('is-booting');

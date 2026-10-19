@@ -454,15 +454,6 @@ body.is-booting .site-foot {
   background: color-mix(in srgb, var(--cycle-ink) 14%, var(--panel));
 }
 
-.rank-nav {
-  display: flex;
-  flex: 0 1 auto;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px;
-  min-width: 0;
-}
-
 .rank-select {
   max-width: 92px;
   padding: 4px 5px;
@@ -1769,63 +1760,246 @@ html[data-theme="dark"] .nt-exp-key {
   font-variant-numeric: tabular-nums;
 }
 
-.index-domain {
-  margin-top: 30px;
+.index-search-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
 }
 
-.index-domain-title {
+.index-search-label {
+  flex: 1 1 auto;
   display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.index-search-label:focus-within {
+  border-color: var(--accent);
+}
+
+.index-search {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 9px 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  outline: none;
+}
+
+.index-search-clear {
+  flex: 0 0 auto;
+  padding: 5px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--muted);
+  font: inherit;
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.index-search-clear:hover {
+  color: var(--ink);
+}
+
+.index-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  margin-top: 9px;
+}
+
+.index-views {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.index-view {
+  display: inline-flex;
   align-items: baseline;
-  gap: 8px;
-  margin: 0 0 8px;
-  padding-bottom: 6px;
-  border-bottom: 1px solid var(--line);
-  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
+  gap: 5px;
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.index-view:hover {
+  color: var(--ink);
+}
+
+.index-view.is-active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--ink);
+}
+
+.index-view-count {
+  font-size: 10.5px;
+  opacity: 0.7;
+  font-variant-numeric: tabular-nums;
+}
+
+.index-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.index-sort-select {
+  max-width: 160px;
+  padding: 4px 6px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.index-summary {
+  margin: 9px 0 0;
+  font-size: 12.5px;
   color: var(--muted);
 }
 
-.domain-count {
-  margin-left: auto;
-  font-weight: 400;
-  opacity: 0.7;
+.index-result-count {
+  margin: 14px 0 2px;
+  font-size: 11.5px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
 }
 
 .index-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-  gap: 2px 16px;
+  grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+  gap: 2px 14px;
 }
 
 .index-item {
   display: flex;
+  align-items: stretch;
+  min-width: 0;
+  border-radius: 8px;
+}
+
+.index-main {
+  flex: 1 1 auto;
+  display: flex;
   flex-direction: column;
-  gap: 1px;
-  width: 100%;
-  padding: 7px 9px;
+  gap: 2px;
+  min-width: 0;
+  padding: 8px 8px 8px 9px;
   border: 0;
-  border-radius: 7px;
+  border-radius: 8px 0 0 8px;
   background: transparent;
   color: inherit;
   text-align: left;
+  font: inherit;
   cursor: pointer;
 }
 
-.index-item:hover,
-.index-item:focus-visible {
+.index-main:hover,
+.index-main:focus-visible {
   background: color-mix(in srgb, var(--accent) 8%, transparent);
   outline: none;
 }
 
+.index-graph {
+  flex: 0 0 auto;
+  align-self: center;
+  width: 28px;
+  height: 26px;
+  margin-right: 3px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: transparent;
+  color: color-mix(in srgb, var(--accent) 78%, var(--muted));
+  font: inherit;
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.index-graph:hover,
+.index-graph:focus-visible {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+  outline: none;
+}
+
+.index-top {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
 .index-key {
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1.5;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.index-domain-tag,
+.index-zero-tag {
+  flex: 0 0 auto;
+  padding: 0 5px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.index-zero-tag {
+  border-color: color-mix(in srgb, var(--cycle-ink) 45%, var(--line));
+  color: var(--cycle-ink);
+}
+
+.index-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1px 7px;
+  font-size: 10.5px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.index-stat.is-product {
+  color: var(--ink);
+  opacity: 0.7;
+}
+
+.index-stat.is-cross {
+  color: var(--accent);
 }
 
 .index-preview {
@@ -1837,6 +2011,40 @@ html[data-theme="dark"] .nt-exp-key {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.index-more {
+  display: block;
+  margin: 14px auto 0;
+  padding: 7px 18px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.index-more:hover {
+  border-color: var(--accent);
+}
+
+.index-empty {
+  padding: 30px 0;
+  color: var(--muted);
+}
+
+.index-empty strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 15px;
+  color: var(--ink);
+}
+
+.index-empty p {
+  margin: 0 0 12px;
+  font-size: 13px;
 }
 
 .empty {
@@ -1893,7 +2101,6 @@ html[data-theme="dark"] .nt-exp-key {
 
 body.is-mobile-ui .site-foot,
 body.is-mobile-ui #homeBtn,
-body.is-mobile-ui .rank-nav,
 body.is-mobile-ui #readHistory,
 body.is-mobile-ui #editBtn,
 body.is-mobile-ui #saveBtn,

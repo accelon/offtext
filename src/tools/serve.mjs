@@ -193,7 +193,8 @@ const server = http.createServer(async (req, res) => {
       // 根目錄要轉到 /build/index.html；若直接回傳 index.html，
       // 相對路徑的 nestedtext.css／js 會解析成 /nestedtext.css，畫面就沒有樣式。
       if (url.pathname === '/') {
-        res.writeHead(302, { location: '/build/index.html' });
+        // 保留查詢字串，否則 /?edit=1 轉址後會變成只讀（?edit=1 被丟掉）。
+        res.writeHead(302, { location: '/build/index.html' + (url.search || '') });
         res.end();
       } else {
         await serveStatic(req, res, url);

@@ -25,6 +25,10 @@
     backlink: null,
     view: 'entry',
     indexDomain: null,
+    indexQuery: '',
+    indexView: 'all',
+    indexSort: 'product',
+    indexLimit: 120,
     uiMode: 'desktop',
     readOnly: false,
     editing: false,
@@ -61,11 +65,14 @@
       /* 私密模式 */
     }
     const requested = query.get('ui');
+    // ?edit=1 是要編輯：本機桌面若曾把介面存成 mobile，也先切回桌面，
+    // 否則手機介面會隱藏編輯按鈕、自動載入全部科目。
+    const wantsEdit = query.get('edit') === '1' && !READONLY_ONLY;
     const mode = phoneLike
       ? 'mobile'
       : requested === 'mobile'
         ? 'mobile'
-        : requested === 'desktop'
+        : requested === 'desktop' || wantsEdit
           ? 'desktop'
           : stored === 'mobile'
             ? 'mobile'
@@ -82,11 +89,6 @@
   const searchResults = $('#searchResults');
   const subjectSelect = $('#subject');
   const viewToggle = $('#viewToggle');
-  const rankSelects = {
-    important: $('#rankImportant'),
-    core: $('#rankCore'),
-    hub: $('#rankHub'),
-  };
   const readHistorySelect = $('#readHistory');
   const boot = $('#boot');
   const bootOpen = $('#bootOpen');
@@ -145,12 +147,6 @@
 
   function isReservedKey(key) {
     return !key || String(key).startsWith('@');
-  }
-
-  function defaultIndexDomain() {
-    const current = state.root && state.root.domain;
-    if (current && domains.some((d) => d.id === current)) return current;
-    return domains[0] ? domains[0].id : '';
   }
 
   function el(tag, cls, text) {

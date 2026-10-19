@@ -210,7 +210,7 @@
       entryController = null;
     }
     subjectSelect.value =
-      state.view === 'index' ? state.indexDomain : state.root.domain;
+      state.view === 'index' ? state.indexDomain || 'all' : state.root.domain;
     reader.textContent = '';
     reader.classList.toggle('is-focusing', !!state.focusPath && state.view === 'entry');
     if (state.view !== 'graph') hideGraphTip();
@@ -218,7 +218,6 @@
       document.body.classList.remove('is-editing-entry');
       closeOrphanPanel();
     }
-    updateRankNav();
     renderReadHistory();
     updateDirtyUi();
     updateSaveUi();

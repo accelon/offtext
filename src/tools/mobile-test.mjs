@@ -115,7 +115,7 @@ const initial = await evaluate(`(() => {
     noCM: !document.querySelector('.cm-editor'),
     cmGlobal: !!window.OfftextCM,
     topbar: ['#subject', '#search', '#viewToggle', '#indexBtn', '#settingsBtn'].map((id) => [id, shown(id)]),
-    hidden: ['#homeBtn', '#rankImportant', '#readHistory', '#editBtn', '#saveBtn', '#orphanBtn', '#leaveBtn'].map((id) => [id, shown(id)]),
+    hidden: ['#homeBtn', '#readHistory', '#editBtn', '#saveBtn', '#orphanBtn', '#leaveBtn'].map((id) => [id, shown(id)]),
     footer: getComputedStyle(document.querySelector('.site-foot')).display,
     scrollWidth: document.documentElement.scrollWidth,
     innerWidth,

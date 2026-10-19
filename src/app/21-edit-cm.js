@@ -548,7 +548,6 @@
 
     rebuildAllIndex();
     fillSubjectSelect();
-    updateRankNav();
     updateSaveUi();
     closeOrphanPanel();
     render();

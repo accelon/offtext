@@ -94,24 +94,7 @@ const homeSources = [...index.links.backlinks.values()].some((sources) =>
 );
 assert.equal(homeSources, false);
 
-// 12. 每個科目各自的節點排行在建索引時算好
-const aiRankings = index.rankings.get('aijargon');
-assert.ok(aiRankings.important.length > 0);
-assert.ok(aiRankings.core.length > 0);
-assert.ok(aiRankings.hub.length > 0);
-for (let i = 1; i < aiRankings.important.length; i++) {
-  assert.ok(
-    aiRankings.important[i - 1].forwardWeight >= aiRankings.important[i].forwardWeight
-  );
-}
-for (const item of aiRankings.hub) {
-  assert.equal(item.hub, item.forwardWeight * item.backWeight);
-}
-for (const domain of index.order.filter((d) => !d.hidden)) {
-  assert.ok(index.rankings.has(domain.id));
-}
-
-// 13. 加權：直接 1、間接 0.5、二跳 0.25；同一節點只取最短距離
+// 12. 加權：直接 1、間接 0.5、二跳 0.25；同一節點只取最短距離
 const weighted = NT.buildIndex([
   {
     id: 'w',

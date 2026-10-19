@@ -154,15 +154,8 @@
     if (route.view === 'entry' || route.view === 'graph') {
       state.root = route;
     } else {
-      state.indexDomain = route.domain || defaultIndexDomain();
-      if (location.hash === '#/index/all' && state.indexDomain) {
-        const h = '#/index/' + encodeURIComponent(state.indexDomain);
-        try {
-          history.replaceState(null, '', h);
-        } catch (e) {
-          location.hash = h;
-        }
-      }
+      // 索引頁的 domain 為 null 代表全部科目（#/index/all）。
+      state.indexDomain = route.domain || null;
     }
 
     if (route.view === 'entry' && route.key !== '_') {
@@ -171,7 +164,9 @@
 
     document.title =
       route.view === 'index'
-        ? '索引 · ' + domainName(state.indexDomain) + ' · 巢式文字'
+        ? '索引 · ' +
+          (state.indexDomain ? domainName(state.indexDomain) : '全部科目') +
+          ' · 巢式文字'
         : route.view === 'graph'
           ? '圖譜 · ' + displayKey(route.domain, route.key) + ' · 巢式文字'
           : displayKey(route.domain, route.key) + ' · 巢式文字';
@@ -203,16 +198,13 @@
     state.expanded.clear();
     state.focusPath = null;
     state.backlink = null;
+    state.indexLimit = 120;
 
-    let target = domain;
-    if (!target) {
-      target =
-        (state.view === 'index' && state.indexDomain) ||
-        state.root.domain ||
-        defaultIndexDomain();
+    let target = domain || 'all';
+    if (target !== 'all') {
+      target = canonicalDomainId(target);
+      if (!domains.some((d) => d.id === target)) target = 'all';
     }
-    target = canonicalDomainId(target);
-    if (!domains.some((d) => d.id === target)) target = defaultIndexDomain();
 
     const h = '#/index/' + encodeURIComponent(target);
     window.scrollTo(0, 0);
@@ -242,75 +234,4 @@
     if (res.status !== 'ok') return;
     if (mode === 'graph') navigateGraph(res.domain, res.key);
     else navigate(res.domain, res.key);
-  }
-
-  function openRankNode(id) {
-    const cut = id.indexOf(':');
-    if (cut < 0) return;
-    const domain = id.slice(0, cut);
-    const key = id.slice(cut + 1);
-    if (state.view === 'graph') navigateGraph(domain, key, { recenter: true });
-    else navigate(domain, key);
-  }
-
-  const RANK_NAV_CONFIGS = [
-    { key: 'important', select: rankSelects.important, metric: 'forward', title: '重要' },
-    { key: 'core', select: rankSelects.core, metric: 'back', title: '核心' },
-    { key: 'hub', select: rankSelects.hub, metric: 'hub', title: '樞紐' },
-  ];
-
-  function currentRankDomain() {
-    if (state.view === 'entry' || state.view === 'graph') return state.root.domain;
-    if (state.view === 'index' && state.indexDomain) return state.indexDomain;
-    return null;
-  }
-
-  function updateRankNav() {
-    const domainId = currentRankDomain();
-    const rankings = domainId ? state.index.rankings.get(domainId) : null;
-
-    RANK_NAV_CONFIGS.forEach((config) => {
-      const select = config.select;
-      while (select.options.length > 1) select.remove(1);
-      select.disabled = !rankings;
-      select.title = rankings
-        ? disp(domainName(domainId)) + ' · ' + config.title
-        : '先選一個科目，再看該科排行';
-      select.value = '';
-
-      if (!rankings) return;
-      rankings[config.key].forEach((item) => {
-        const option = document.createElement('option');
-        option.value = item.id;
-        let detail = '';
-        if (config.metric === 'forward') {
-          detail = '順鏈 ' + item.forward + ' · 加權 ' + item.forwardWeight.toFixed(1);
-        } else if (config.metric === 'back') {
-          detail = '逆鏈 ' + item.back + ' · 加權 ' + item.backWeight.toFixed(1);
-        } else {
-          detail =
-            '順鏈 ' +
-            item.forward +
-            '、逆鏈 ' +
-            item.back +
-            '、樞紐 ' +
-            item.hub.toFixed(1);
-        }
-        option.textContent = disp(item.key);
-        option.title = disp(item.key) + '：' + detail;
-        option.setAttribute('aria-label', disp(item.key) + '，' + detail);
-        select.append(option);
-      });
-    });
-  }
-
-  function initRankNav() {
-    RANK_NAV_CONFIGS.forEach((config) => {
-      config.select.addEventListener('change', () => {
-        const id = config.select.value;
-        config.select.value = '';
-        if (id) openRankNode(id);
-      });
-    });
-    updateRankNav();
   }

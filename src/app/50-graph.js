@@ -1015,6 +1015,27 @@
     reader.append(article);
   }
 
+  /* ---------- 索引：用 graph 連線數探索節點 ---------- */
+
+  const INDEX_VIEWS = [
+    ['all', '全部'],
+    ['zero', '零連結'],
+    ['cross', '跨領域'],
+    ['both', '兩邊都有'],
+  ];
+  const INDEX_SORTS = [
+    ['product', '乘積（順×逆）'],
+    ['forward', '順鏈次數'],
+    ['back', '逆鏈次數'],
+    ['cross', '跨領域連線'],
+    ['name', '名稱'],
+  ];
+  const INDEX_PAGE_SIZE = 120;
+
+  let indexRowCache = null;
+  let indexRowCacheFor = null;
+  let indexRowCacheMode = -1;
+
   function indexCount(domain) {
     let n = 0;
     for (const [key, value] of domain.entries) {
@@ -1022,6 +1043,132 @@
       n++;
     }
     return n;
+  }
+
+  function indexRows() {
+    const mode = SETTINGS ? SETTINGS.simModeOf() : 0;
+    if (indexRowCache && indexRowCacheFor === state.index && indexRowCacheMode === mode) {
+      return indexRowCache;
+    }
+
+    const rows = [];
+    for (const entry of entries) {
+      const id = entry.domain + ':' + entry.key;
+      const forwardSet = state.index.links.forward.get(id);
+      const backwardSet = state.index.links.backward.get(id);
+      let forward = 0;
+      let back = 0;
+      let crossOut = 0;
+      let crossIn = 0;
+      const otherDomains = new Set();
+
+      if (forwardSet) {
+        forward = forwardSet.size;
+        for (const target of forwardSet) {
+          const domain = target.slice(0, target.indexOf(':'));
+          if (domain !== entry.domain) {
+            crossOut++;
+            otherDomains.add(domain);
+          }
+        }
+      }
+      if (backwardSet) {
+        back = backwardSet.size;
+        for (const source of backwardSet) {
+          const domain = source.slice(0, source.indexOf(':'));
+          if (domain !== entry.domain) {
+            crossIn++;
+            otherDomains.add(domain);
+          }
+        }
+      }
+
+      rows.push({
+        ...entry,
+        id,
+        forward,
+        back,
+        product: forward * back,
+        crossOut,
+        crossIn,
+        cross: crossOut + crossIn,
+        otherDomains: [...otherDomains],
+      });
+    }
+
+    indexRowCache = rows;
+    indexRowCacheFor = state.index;
+    indexRowCacheMode = mode;
+    return rows;
+  }
+
+  function indexZeroKind(row) {
+    if (!row.forward && !row.back) return 'none';
+    if (!row.forward) return 'no-forward';
+    return 'no-back';
+  }
+
+  function indexZeroLabel(row) {
+    return { none: '全無', 'no-forward': '無順鏈', 'no-back': '無逆鏈' }[indexZeroKind(row)];
+  }
+
+  function indexBaseRows() {
+    let rows = indexRows();
+    if (state.indexDomain) rows = rows.filter((row) => row.domain === state.indexDomain);
+
+    const query = state.indexQuery.trim().toLowerCase();
+    if (query) {
+      const forms = SETTINGS ? SETTINGS.searchForms(query) : [query];
+      const needles = forms.map((form) => form.toLowerCase());
+      rows = rows.filter((row) => needles.some((needle) => row.hay.includes(needle)));
+    }
+    return rows;
+  }
+
+  function indexSortName() {
+    const hit = INDEX_SORTS.find(([key]) => key === state.indexSort);
+    return hit ? hit[1] : INDEX_SORTS[0][1];
+  }
+
+  function sortIndexRows(rows) {
+    const byName = (a, b) =>
+      a.key.localeCompare(b.key, 'zh-Hant') ||
+      a.domainName.localeCompare(b.domainName, 'zh-Hant') ||
+      a.domain.localeCompare(b.domain);
+    const byTotal = (a, b) => b.forward + b.back - (a.forward + a.back);
+    // 零連結時乘積全是 0；預設再依「全無 → 無順鏈 → 無逆鏈」分組，方便逐類補鏈。
+    const zeroRank = { none: 0, 'no-forward': 1, 'no-back': 2 };
+    const sorters = {
+      product: (a, b) => {
+        if (state.indexView === 'zero') {
+          const rank = zeroRank[indexZeroKind(a)] - zeroRank[indexZeroKind(b)];
+          if (rank) return rank;
+          return byName(a, b);
+        }
+        return b.product - a.product || b.cross - a.cross || byTotal(a, b) || byName(a, b);
+      },
+      forward: (a, b) => b.forward - a.forward || b.product - a.product || byName(a, b),
+      back: (a, b) => b.back - a.back || b.product - a.product || byName(a, b),
+      cross: (a, b) => b.cross - a.cross || b.product - a.product || byName(a, b),
+      name: byName,
+    };
+    return rows.sort(sorters[state.indexSort] || sorters.product);
+  }
+
+  function indexViewCounts(base) {
+    return {
+      all: base.length,
+      zero: base.filter((row) => row.product === 0).length,
+      cross: base.filter((row) => row.cross > 0).length,
+      both: base.filter((row) => row.product > 0).length,
+    };
+  }
+
+  function indexViewRows(base) {
+    if (state.indexView === 'zero') return base.filter((row) => row.product === 0);
+    if (state.indexView === 'cross') return base.filter((row) => row.cross > 0);
+    if (state.indexView === 'both') return base.filter((row) => row.product > 0);
+    return base.slice();
   }
 
   function renderIndexTabs(selected) {
@@ -1036,20 +1183,17 @@
       btn.setAttribute('aria-pressed', String(active));
       btn.append(el('span', 'index-tab-name', label));
       btn.append(el('span', 'index-tab-count', String(count)));
-      btn.addEventListener('click', () => navigateIndex(id));
+      btn.addEventListener('click', () => navigateIndex(id === 'all' ? null : id));
       nav.append(btn);
     };
 
+    add('all', '全部科目', entries.length);
     domains.forEach((domain) => add(domain.id, disp(domain.name || domain.id), indexCount(domain)));
     return nav;
   }
 
   function renderIndex() {
-    const selected = state.indexDomain || defaultIndexDomain();
-    const chosen = state.index.byId.get(selected) || state.index.byId.get(defaultIndexDomain());
-    const shown = chosen ? [chosen] : [];
-    const total = chosen ? indexCount(chosen) : 0;
-
+    const allRows = indexRows();
     const article = el('article', 'index');
     const head = el('header', 'entry-head');
     head.append(el('div', 'entry-kicker', '資料表'));
@@ -1059,43 +1203,249 @@
         'p',
         'index-hint',
         '共 ' +
-          total +
-          ' 條' +
-          (chosen ? ' · ' + disp(domainName(chosen.id)) : '') +
-          '。點一個條目開始，或直接用上方搜尋。'
+          allRows.length +
+          ' 條、' +
+          domains.length +
+          ' 個科目。先用文字搜尋，再依科目、連線狀態與排序縮小範圍。順／逆是順鏈／逆鏈次數，×是兩者乘積；點條目閱讀，按「圖」以該節點開圖譜。'
       )
     );
-    head.append(renderIndexTabs(chosen ? chosen.id : selected));
+
+    const searchRow = el('div', 'index-search-row');
+    const searchLabel = el('label', 'index-search-label');
+    searchLabel.append(document.createTextNode('搜尋'));
+    const search = document.createElement('input');
+    search.id = 'indexSearch';
+    search.className = 'index-search';
+    search.type = 'search';
+    search.autocomplete = 'off';
+    search.spellcheck = false;
+    search.placeholder = '條目名稱或內容…';
+    search.setAttribute('aria-label', '搜尋索引條目');
+    search.value = state.indexQuery;
+    searchLabel.append(search);
+    searchRow.append(searchLabel);
+
+    const clear = el('button', 'index-search-clear', '清除');
+    clear.type = 'button';
+    clear.title = '清除搜尋字';
+    clear.hidden = !state.indexQuery;
+    searchRow.append(clear);
+    head.append(searchRow);
+
+    head.append(renderIndexTabs(state.indexDomain || 'all'));
+
+    const controls = el('div', 'index-controls');
+    const views = el('nav', 'index-views');
+    views.setAttribute('aria-label', '節點連線檢視');
+    const viewButtons = {};
+    INDEX_VIEWS.forEach(([key, label]) => {
+      const active = key === state.indexView;
+      const btn = el('button', 'index-view' + (active ? ' is-active' : ''));
+      btn.type = 'button';
+      btn.dataset.view = key;
+      btn.setAttribute('aria-pressed', String(active));
+      btn.append(el('span', 'index-view-name', label));
+      const count = el('span', 'index-view-count', '0');
+      btn.append(count);
+      btn.addEventListener('click', () => {
+        if (state.indexView === key) return;
+        state.indexView = key;
+        state.indexLimit = INDEX_PAGE_SIZE;
+        refresh();
+      });
+      viewButtons[key] = { button: btn, count };
+      views.append(btn);
+    });
+    controls.append(views);
+
+    const sortLabel = el('label', 'index-sort');
+    sortLabel.append(document.createTextNode('排序'));
+    const sort = document.createElement('select');
+    sort.id = 'indexSort';
+    sort.className = 'index-sort-select';
+    sort.setAttribute('aria-label', '索引排序');
+    INDEX_SORTS.forEach(([key, label]) => {
+      const option = document.createElement('option');
+      option.value = key;
+      option.textContent = label;
+      option.selected = key === state.indexSort;
+      sort.append(option);
+    });
+    sort.addEventListener('change', () => {
+      state.indexSort = sort.value;
+      state.indexLimit = INDEX_PAGE_SIZE;
+      refresh();
+    });
+    sortLabel.append(sort);
+    controls.append(sortLabel);
+    head.append(controls);
+
+    const summary = el('p', 'index-summary');
+    head.append(summary);
     article.append(head);
 
-    shown.forEach((domain) => {
-      const section = el('section', 'index-domain');
-      const title = el('h2', 'index-domain-title');
-      title.append(el('span', 'domain-name', disp(domain.name || domain.id)));
-      title.append(el('span', 'domain-count', String(indexCount(domain))));
-      section.append(title);
+    const results = el('div', 'index-results');
+    article.append(results);
+
+    function refresh() {
+      const base = indexBaseRows();
+      const counts = indexViewCounts(base);
+
+      Object.entries(viewButtons).forEach(([key, item]) => {
+        item.count.textContent = String(counts[key]);
+        const active = state.indexView === key;
+        item.button.classList.toggle('is-active', active);
+        item.button.setAttribute('aria-pressed', String(active));
+      });
+      clear.hidden = !state.indexQuery;
+
+      const rows = sortIndexRows(indexViewRows(base));
+      const query = state.indexQuery.trim();
+      const scope = state.indexDomain ? disp(domainName(state.indexDomain)) : '全部科目';
+      let text =
+        scope +
+        ' · 符合 ' +
+        rows.length +
+        ' 個節點' +
+        (query ? '（搜尋「' + query + '」）' : '') +
+        ' · 依' +
+        indexSortName() +
+        '排序';
+      if (state.indexView === 'zero') {
+        let none = 0;
+        let noForward = 0;
+        let noBack = 0;
+        rows.forEach((row) => {
+          if (!row.forward && !row.back) none++;
+          else if (!row.forward) noForward++;
+          else noBack++;
+        });
+        text += ' · 全無 ' + none + '、無順鏈 ' + noForward + '、無逆鏈 ' + noBack;
+      } else if (state.indexView === 'cross') {
+        const outCount = rows.filter((row) => row.crossOut > 0).length;
+        const inCount = rows.filter((row) => row.crossIn > 0).length;
+        text += ' · 順鏈跨 ' + outCount + '、逆鏈跨 ' + inCount;
+      }
+      summary.textContent = text;
+
+      results.textContent = '';
+      if (!rows.length) {
+        const empty = el('div', 'index-empty');
+        empty.append(el('strong', null, '沒有符合的節點'));
+        empty.append(el('p', null, '換個搜尋字，或把科目／檢視條件放寬。'));
+        const reset = el('button', 'ghost', '清除搜尋與篩選');
+        reset.type = 'button';
+        reset.addEventListener('click', () => {
+          state.indexQuery = '';
+          state.indexView = 'all';
+          state.indexLimit = INDEX_PAGE_SIZE;
+          if (state.indexDomain) navigateIndex();
+          else render();
+        });
+        empty.append(reset);
+        results.append(empty);
+        return;
+      }
+
+      const shown = rows.slice(0, state.indexLimit);
+      const meta = el(
+        'p',
+        'index-result-count',
+        '顯示 ' +
+          shown.length +
+          ' / ' +
+          rows.length +
+          ' 個' +
+          (rows.length > shown.length ? ' · 還有 ' + (rows.length - shown.length) + ' 個' : '')
+      );
+      results.append(meta);
 
       const list = el('div', 'index-list');
-      if (domain.entries.has('_')) {
-        list.append(indexItem(domain.id, '_', disp(domain.name || domain.id), domain.entries.get('_')));
+      shown.forEach((row) => list.append(indexItem(row)));
+      results.append(list);
+
+      if (rows.length > shown.length) {
+        const more = el('button', 'index-more', '顯示更多');
+        more.type = 'button';
+        more.addEventListener('click', () => {
+          state.indexLimit += INDEX_PAGE_SIZE;
+          refresh();
+        });
+        results.append(more);
       }
-      for (const [key, value] of domain.entries) {
-        if (key === '_' || isReservedKey(key) || isRedirect(value)) continue;
-        list.append(indexItem(domain.id, key, key, value));
-      }
-      section.append(list);
-      article.append(section);
+    }
+
+    search.addEventListener('input', () => {
+      state.indexQuery = search.value;
+      state.indexLimit = INDEX_PAGE_SIZE;
+      refresh();
+    });
+    search.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') return;
+      e.preventDefault();
+      state.indexQuery = '';
+      state.indexLimit = INDEX_PAGE_SIZE;
+      search.value = '';
+      refresh();
+      search.blur();
+    });
+    clear.addEventListener('click', () => {
+      state.indexQuery = '';
+      state.indexLimit = INDEX_PAGE_SIZE;
+      search.value = '';
+      refresh();
+      search.focus();
     });
 
     reader.append(article);
+    refresh();
   }
 
-  function indexItem(domain, key, label, value) {
-    const item = el('button', 'index-item');
-    item.type = 'button';
-    item.append(el('span', 'index-key', disp(label)));
-    item.append(el('span', 'index-preview', preview(value)));
-    item.addEventListener('click', () => navigate(domain, key));
+  function indexItem(row) {
+    const item = el('div', 'index-item');
+    const main = el('button', 'index-main');
+    main.type = 'button';
+    main.title = '閱讀「' + disp(row.key) + '」';
+    main.setAttribute('aria-label', '閱讀「' + disp(row.key) + '」');
+
+    const top = el('span', 'index-top');
+    top.append(el('span', 'index-key', disp(row.key)));
+    if (!state.indexDomain) {
+      top.append(el('span', 'index-domain-tag', disp(row.domainName)));
+    }
+    if (!row.product) {
+      top.append(el('span', 'index-zero-tag', indexZeroLabel(row)));
+    }
+    main.append(top);
+
+    const meta = el('span', 'index-meta');
+    const addStat = (text, title, extra) => {
+      const stat = el('span', 'index-stat' + (extra ? ' ' + extra : ''), text);
+      stat.title = title;
+      meta.append(stat);
+    };
+    addStat('順 ' + row.forward, '順鏈：本條目引用 ' + row.forward + ' 個條目');
+    addStat('逆 ' + row.back, '逆鏈：本條目被 ' + row.back + ' 個條目引用');
+    addStat('×' + row.product, '順鏈次數 × 逆鏈次數', 'is-product');
+    if (row.cross) {
+      const names = row.otherDomains
+        .map((id) => disp(domainName(id)))
+        .sort((a, b) => a.localeCompare(b, 'zh-Hant'))
+        .join('、');
+      addStat('跨 ' + row.cross, '跨領域連線：' + names, 'is-cross');
+    }
+    main.append(meta);
+
+    main.append(el('span', 'index-preview', row.preview));
+    main.addEventListener('click', () => navigate(row.domain, row.key));
+    item.append(main);
+
+    const graph = el('button', 'index-graph', '圖');
+    graph.type = 'button';
+    graph.title = '以「' + disp(row.key) + '」為中心開圖譜';
+    graph.setAttribute('aria-label', '以「' + disp(row.key) + '」為中心開圖譜');
+    graph.addEventListener('click', () => navigateGraph(row.domain, row.key));
+    item.append(graph);
     return item;
   }
 

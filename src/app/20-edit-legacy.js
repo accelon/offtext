@@ -181,7 +181,6 @@
     rebuildSearchEntries();
     updateStats();
     fillSubjectSelect();
-    updateRankNav();
     return added;
   }
 
@@ -463,7 +462,6 @@
 
     subjectSelect.value = '';
     fillSubjectSelect();
-    updateRankNav();
     rebuildSearchEntries();
     updateStats();
     updateDirtyUi();

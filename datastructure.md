@@ -60,8 +60,7 @@ AGI	@aijargon:通用人工智能
 - `links.backlinks`：去重後的反鏈接，附引用次數。
 - `links.incoming`：是否有任何來源引用（含首頁），用於孤兒判定。
 - `weights.forward`／`backward`／`hub`：衰減 BFS 的加權值。
-- `weights.normalized`：每科正規化後的值，供排行與 UI。
-- `rankings`：每科的重要／核心／樞紐前 12 名。
+- `weights.normalized`：每科正規化後的值，供加權比較與健檢。
 
 ## 加權
 
