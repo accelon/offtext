@@ -1762,17 +1762,19 @@ html[data-theme="dark"] .nt-exp-key {
 
 .index-search-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   margin-top: 14px;
 }
 
 .index-search-label {
-  flex: 1 1 auto;
+  flex: 0 1 320px;
   display: flex;
   align-items: center;
   gap: 9px;
   min-width: 0;
+  max-width: 320px;
   padding: 0 11px;
   border: 1px solid var(--line);
   border-radius: 9px;
