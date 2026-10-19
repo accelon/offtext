@@ -17,7 +17,8 @@
     "test:export": "node src/tools/export-test.mjs",
     "test:contrast": "node src/tools/contrast-test.mjs",
     "test:topbar": "node src/tools/topbar-test.mjs --width=1100",
-    "audit:knowledge": "node src/tools/knowledge-audit.mjs"
+    "audit:knowledge": "node src/tools/knowledge-audit.mjs",
+    "audit:mentions": "node src/tools/mention-audit.mjs"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.18.6",
