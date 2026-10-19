@@ -127,7 +127,7 @@ node src/tools/knowledge-audit.mjs --domain=math --top=20 --layers
 
 ## 下一批
 
-- 公民與法治、財商（各 4 環）：先各拆一個環，再依 `editorial-guide.md` 補鏈。
+- 公民與法治、財商：2026-10-19 已拆環（0 環），下一步補鏈。
 - 化學（10 環）、資訊科技（14 環）、AI 術語（23 環）：最大 SCC 較大，一次只處理一個 SCC，不要整科重寫。
 - 每次改完跑：
 

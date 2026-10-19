@@ -98,4 +98,4 @@ node src/tools/knowledge-audit.mjs --domain=physics --top=20 --layers
 
 - 先人工審核 L0 清單，區分「真的基本」與「只是沒有 outgoing」。
 - 把審核結果寫成 `knowledge.md` 的編輯規範。
-- 數學已於 2026-10-19 拆環（0 環）；下一個可選公民與法治或財商（各 4 環）做 pilot。
+- 數學已於 2026-10-19 拆環（0 環）；公民與法治、財商也已拆環（0 環）。下一個可選化學（10 環）或資訊科技（14 環）做 pilot。
