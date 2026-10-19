@@ -128,7 +128,7 @@ node src/tools/knowledge-audit.mjs --domain=math --top=20 --layers
 ## 下一批
 
 - 公民與法治、財商：2026-10-19 已拆環（0 環），下一步補鏈。
-- 國語文（13 環）、藝術（9 環）、AI 術語（23 環）：最大 SCC 較大，一次只處理一個 SCC，不要整科重寫。
+- AI 術語（23 環，最大 21 節點）：唯一剩下的科目，SCC 較大，一次只處理一個 SCC，不要整科重寫。
 - 每次改完跑：
 
 ```powershell
