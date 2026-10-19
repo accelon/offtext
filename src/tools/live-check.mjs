@@ -138,6 +138,11 @@ const loaded = await evaluate(`(() => ({
   hash: location.hash,
   bootVisible: !document.querySelector('#boot').hidden,
   bodyTextLength: document.querySelector('#reader')?.textContent.length || 0,
+  readonly: document.body.classList.contains('is-readonly-online'),
+  editHidden: document.querySelector('#editBtn')?.hidden,
+  saveHidden: document.querySelector('#saveBtn')?.hidden,
+  exportHidden: document.querySelector('#exportBtn')?.hidden,
+  editing: !!document.querySelector('.cm-offtext-root.cm-editing'),
 }))()`);
 
 const shot = await send('Page.captureScreenshot', { format: 'png' });
