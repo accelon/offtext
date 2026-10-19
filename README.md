@@ -43,7 +43,7 @@ HTTP 開 `http://127.0.0.1:8123/build/index.html`；啟動頁勾選科目後按�
 
 ## 資料
 
-`data/` 目前有 16 個科目、1,820 個內容條目。科目清單與統計見 [knowledge.md](knowledge.md)。資料檔不預先打包；啟動頁只讀 `data/` 的檔名與 meta，載入後才 fetch 內容。
+`data/` 目前有 16 個科目、1,830 個內容條目。科目清單與統計見 [knowledge.md](knowledge.md)。資料檔不預先打包；啟動頁只讀 `data/` 的檔名與 meta，載入後才 fetch 內容。
 
 ## 建置與驗證
 

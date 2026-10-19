@@ -560,18 +560,18 @@ toolbar 最右邊的扳手（`#settingsBtn`）開啟模態設置頁（`#settings
 | 化學 | `chemistry.tsv` | 91 |
 | 生物 | `biology.tsv` | 106 |
 | 數學 | `math.tsv` | 87 |
-| 物理 | `physics.tsv` | 82 |
+| 物理 | `physics.tsv` | 84 |
 | 地球科學 | `earthscience.tsv` | 105 |
 | 國語文 | `chinese.tsv` | 140 |
 | 信息技術 | `computing.tsv` | 112 |
 | 公民與法治 | `civics.tsv` | 109 |
 | 藝術 | `art.tsv` | 91 |
 | AI 術語 | `aijargon.tsv` | 193 |
-| 經濟學 | `economics.tsv` | 136 |
-| 財商 | `fq.tsv` | 115 |
+| 經濟學 | `economics.tsv` | 141 |
+| 財商 | `fq.tsv` | 118 |
 
-- 索引總計：1,820 條（不含首頁與 `@` 對照頁）。
-- 全資料 audit：1,820 內容條目＋290 對照頁、2,315 個引用。
+- 索引總計：1,830 條（不含首頁與 `@` 對照頁）。
+- 全資料 audit：1,830 內容條目＋290 對照頁、2,322 個引用。
 - 斷鏈：0。
 - 壞別名：0。
 - 引用圖中回到自己的條目：556。
