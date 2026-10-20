@@ -5908,10 +5908,12 @@ html[data-theme="dark"] .export-hover{box-shadow:0 16px 40px rgba(0,0,0,.55)}
 
     tourTitleEl = el('h2', 'tour-title', '');
     tourTitleEl.id = 'tourTitle';
+    tourBubble.setAttribute('aria-labelledby', 'tourTitle');
     tourBubble.append(tourTitleEl);
 
     tourTextEl = el('p', 'tour-text', '');
     tourTextEl.id = 'tourText';
+    tourTextEl.setAttribute('aria-live', 'polite');
     tourBubble.append(tourTextEl);
 
     tourNoteEl = el('p', 'tour-note', '');

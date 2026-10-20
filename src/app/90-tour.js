@@ -210,10 +210,12 @@
 
     tourTitleEl = el('h2', 'tour-title', '');
     tourTitleEl.id = 'tourTitle';
+    tourBubble.setAttribute('aria-labelledby', 'tourTitle');
     tourBubble.append(tourTitleEl);
 
     tourTextEl = el('p', 'tour-text', '');
     tourTextEl.id = 'tourText';
+    tourTextEl.setAttribute('aria-live', 'polite');
     tourBubble.append(tourTextEl);
 
     tourNoteEl = el('p', 'tour-note', '');

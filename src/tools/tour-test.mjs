@@ -224,6 +224,23 @@ const clicked = await evaluate('window.OfftextTour.state()');
 assert(clicked.running && clicked.step === 1, '點畫面沒有前進下一步');
 await evaluate(`window.OfftextTour.stop()`);
 
+// 從索引頁開始：應先回到條目，才能指向「文／圖譜」。
+await evaluate(`location.hash = '#/index/all'`);
+await waitFor('!!document.querySelector("#indexSearch")', '索引頁');
+await evaluate(`window.OfftextTour.start('quick')`);
+await waitFor('window.OfftextTour.state().step === 0', '索引起點');
+await evaluate(`document.querySelector('#tourNext').click()`);
+await sleep(420);
+await evaluate(`document.querySelector('#tourNext').click()`);
+await waitFor('window.OfftextTour.state().step === 2', '索引起點第二步');
+await waitFor('window.OfftextTour.state().target === true', '索引起點的文／圖譜');
+const fromIndex = await evaluate(`(() => ({
+  hash: decodeURIComponent(location.hash),
+  step: window.OfftextTour.state().step,
+  target: window.OfftextTour.state().targetRect,
+}))()`);
+await evaluate(`window.OfftextTour.stop()`);
+
 console.log(
   JSON.stringify(
     {
@@ -235,6 +252,7 @@ console.log(
       escaped,
       closed,
       clicked: { running: clicked.running, step: clicked.step },
+      fromIndex,
       exceptions,
     },
     null,
