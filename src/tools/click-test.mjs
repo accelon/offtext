@@ -353,9 +353,7 @@ const graph = await evaluate(`(async () => {
     return true;
   };
   const setDepth = async (value) => {
-    const select = document.querySelector('#graphDepth');
-    select.value = value;
-    select.dispatchEvent(new Event('change', { bubbles: true }));
+    document.querySelector('#graphDepth [data-value="' + value + '"]').click();
     await wait();
   };
   const setCheck = async (id, checked) => {
@@ -394,12 +392,11 @@ const graph = await evaluate(`(async () => {
     rendered: getComputedStyle(document.querySelector('.graph-node-label')).fontSize,
   };
 
-  const edgeInput = document.querySelector('#graphEdgeLength');
-  edgeInput.value = 'long';
-  edgeInput.dispatchEvent(new Event('change', { bubbles: true }));
+  const edgeInput = document.querySelector('#graphEdgeLength [data-value="long"]');
+  edgeInput.click();
   await wait();
   const edge = {
-    value: document.querySelector('#graphEdgeLength')?.value,
+    value: document.querySelector('#graphEdgeLength .graph-segment.is-active')?.dataset.value,
     nodes: document.querySelectorAll('.graph-node').length,
   };
 

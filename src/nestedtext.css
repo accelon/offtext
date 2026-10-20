@@ -979,9 +979,18 @@ html[data-theme="dark"] .hover-card {
   font-size: 12px;
 }
 
-.graph-panel .graph-control select {
-  padding: 2px 5px;
+.graph-panel .graph-segment-control {
+  gap: 5px;
+}
+
+.graph-control-label {
+  color: var(--muted);
+}
+
+.graph-panel .graph-seg button {
+  padding: 2px 7px;
   font-size: 11.5px;
+  line-height: 1.5;
 }
 
 .graph-panel .graph-font-control input[type="range"] {

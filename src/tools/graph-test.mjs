@@ -188,9 +188,7 @@ const edgeStyle = await evaluate(`(() => {
 const rectShape = await evaluate(`(async () => {
   const circleSvg = document.querySelector('.graph-svg');
   const circleHeight = Math.round(circleSvg.viewBox.baseVal.height);
-  const select = document.querySelector('#graphNodeShape');
-  select.value = 'rect';
-  select.dispatchEvent(new Event('change', { bubbles: true }));
+  document.querySelector('#graphNodeShape [data-value="rect"]').click();
   await new Promise((r) => setTimeout(r, 350));
 
   const rectSvg = document.querySelector('.graph-svg');
@@ -233,9 +231,7 @@ const rectShape = await evaluate(`(async () => {
 await shot('shot-graph-rect.png');
 
 const rectDepth3 = await evaluate(`(async () => {
-  const depth = document.querySelector('#graphDepth');
-  depth.value = '3';
-  depth.dispatchEvent(new Event('change', { bubbles: true }));
+  document.querySelector('#graphDepth [data-value="3"]').click();
   await new Promise((r) => setTimeout(r, 450));
   const groups = [...document.querySelectorAll('.graph-node')];
   const boxes = groups.map((group) => ({ key: group.dataset.key, rect: group.getBoundingClientRect() }));
@@ -261,13 +257,9 @@ const rectDepth3 = await evaluate(`(async () => {
 })()`);
 
 await evaluate(`(async () => {
-  const depth = document.querySelector('#graphDepth');
-  depth.value = '2';
-  depth.dispatchEvent(new Event('change', { bubbles: true }));
+  document.querySelector('#graphDepth [data-value="2"]').click();
   await new Promise((r) => setTimeout(r, 300));
-  const select = document.querySelector('#graphNodeShape');
-  select.value = 'circle';
-  select.dispatchEvent(new Event('change', { bubbles: true }));
+  document.querySelector('#graphNodeShape [data-value="circle"]').click();
   await new Promise((r) => setTimeout(r, 300));
 })()`);
 await shot('shot-graph-panel.png');
@@ -286,24 +278,20 @@ const arrows = await evaluate(`(() => {
 
 // 線粗：細／中／粗，實際 stroke-width 要跟著變。
 const edgeThick = await evaluate(`(async () => {
-  const select = document.querySelector('#graphEdgeWidth');
-  select.value = 'thick';
-  select.dispatchEvent(new Event('change', { bubbles: true }));
+  document.querySelector('#graphEdgeWidth [data-value="thick"]').click();
   await new Promise((r) => setTimeout(r, 160));
   const line = document.querySelector('.graph-edge');
   return {
-    value: document.querySelector('#graphEdgeWidth')?.value,
+    value: document.querySelector('#graphEdgeWidth .graph-segment.is-active')?.dataset.value,
     strokeWidth: line && getComputedStyle(line).strokeWidth,
   };
 })()`);
 await shot('shot-graph-thick.png');
 const edgeBack = await evaluate(`(async () => {
-  const select = document.querySelector('#graphEdgeWidth');
-  select.value = 'medium';
-  select.dispatchEvent(new Event('change', { bubbles: true }));
+  document.querySelector('#graphEdgeWidth [data-value="medium"]').click();
   await new Promise((r) => setTimeout(r, 160));
   return {
-    value: document.querySelector('#graphEdgeWidth')?.value,
+    value: document.querySelector('#graphEdgeWidth .graph-segment.is-active')?.dataset.value,
     strokeWidth: document.querySelector('.graph-edge') &&
       getComputedStyle(document.querySelector('.graph-edge')).strokeWidth,
   };

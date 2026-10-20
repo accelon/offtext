@@ -3959,26 +3959,47 @@
     render();
   }
 
+  /** 多態按鈕：同一個設定一次只能選一個，不再用下拉。 */
+  function graphSegmentControl(id, labelText, options, current, onPick) {
+    const wrap = el('div', 'graph-control graph-segment-control');
+    wrap.id = id;
+    wrap.setAttribute('role', 'group');
+    wrap.setAttribute('aria-label', labelText);
+    wrap.append(el('span', 'graph-control-label', labelText));
+
+    const group = el('span', 'seg graph-seg');
+    options.forEach(([value, text]) => {
+      const active = String(current) === String(value);
+      const button = el('button', 'graph-segment' + (active ? ' is-active' : ''), text);
+      button.type = 'button';
+      button.dataset.value = String(value);
+      button.setAttribute('aria-pressed', String(active));
+      button.title = labelText + '：' + text;
+      button.addEventListener('click', () => onPick(String(value)));
+      group.append(button);
+    });
+    wrap.append(group);
+    return wrap;
+  }
+
   function renderGraphControls(graph) {
     const box = el('div', 'graph-controls');
 
-    const depthLabel = el('label', 'graph-control');
-    depthLabel.append(document.createTextNode('層數'));
-    const depth = document.createElement('select');
-    [1, 2, 3].forEach((n) => {
-      const option = document.createElement('option');
-      option.value = String(n);
-      option.textContent = String(n);
-      depth.append(option);
-    });
-    depth.id = 'graphDepth';
-    depth.value = String(state.graph.depth);
-    depth.addEventListener('change', () => {
-      state.graph.depth = Number(depth.value);
-      state.graph.focus = null;
-      render();
-    });
-    depthLabel.append(depth);
+    const depthLabel = graphSegmentControl(
+      'graphDepth',
+      '層數',
+      [
+        ['1', '1'],
+        ['2', '2'],
+        ['3', '3'],
+      ],
+      state.graph.depth,
+      (value) => {
+        state.graph.depth = Number(value);
+        state.graph.focus = null;
+        render();
+      }
+    );
 
     const fontLabel = el('label', 'graph-control graph-font-control');
     fontLabel.append(document.createTextNode('字級'));
@@ -4004,70 +4025,52 @@
     });
     fontLabel.append(font, fontValue);
 
-    const edgeLabel = el('label', 'graph-control');
-    edgeLabel.append(document.createTextNode('連線'));
-    const edge = document.createElement('select');
-    edge.id = 'graphEdgeLength';
-    [
-      ['short', '短'],
-      ['medium', '中'],
-      ['long', '長'],
-    ].forEach(([value, text]) => {
-      const option = document.createElement('option');
-      option.value = value;
-      option.textContent = text;
-      edge.append(option);
-    });
-    edge.value = state.graph.edgeLength;
-    edge.addEventListener('change', () => {
-      state.graph.edgeLength = edge.value;
-      state.graph.focus = null;
-      render();
-    });
-    edgeLabel.append(edge);
+    const edgeLabel = graphSegmentControl(
+      'graphEdgeLength',
+      '連線',
+      [
+        ['short', '短'],
+        ['medium', '中'],
+        ['long', '長'],
+      ],
+      state.graph.edgeLength,
+      (value) => {
+        state.graph.edgeLength = value;
+        state.graph.focus = null;
+        render();
+      }
+    );
 
-    const widthLabel = el('label', 'graph-control');
-    widthLabel.append(document.createTextNode('線粗'));
-    const lineWidth = document.createElement('select');
-    lineWidth.id = 'graphEdgeWidth';
-    [
-      ['thin', '細'],
-      ['medium', '中'],
-      ['thick', '粗'],
-    ].forEach(([value, text]) => {
-      const option = document.createElement('option');
-      option.value = value;
-      option.textContent = text;
-      lineWidth.append(option);
-    });
-    lineWidth.value = state.graph.edgeWidth;
-    lineWidth.addEventListener('change', () => {
-      state.graph.edgeWidth = lineWidth.value;
-      state.graph.focus = null;
-      render();
-    });
-    widthLabel.append(lineWidth);
+    const widthLabel = graphSegmentControl(
+      'graphEdgeWidth',
+      '線粗',
+      [
+        ['thin', '細'],
+        ['medium', '中'],
+        ['thick', '粗'],
+      ],
+      state.graph.edgeWidth,
+      (value) => {
+        state.graph.edgeWidth = value;
+        state.graph.focus = null;
+        render();
+      }
+    );
 
-    const shapeLabel = el('label', 'graph-control');
-    shapeLabel.append(document.createTextNode('節點'));
-    const shape = document.createElement('select');
-    shape.id = 'graphNodeShape';
-    [
-      ['circle', '圓形'],
-      ['rect', '矩形'],
-    ].forEach(([value, text]) => {
-      const option = document.createElement('option');
-      option.value = value;
-      option.textContent = text;
-      shape.append(option);
-    });
-    shape.value = state.graph.nodeShape;
-    shape.addEventListener('change', () => {
-      state.graph.nodeShape = shape.value;
-      state.graph.focus = null;
-      render();
-    });
-    shapeLabel.append(shape);
+    const shapeLabel = graphSegmentControl(
+      'graphNodeShape',
+      '節點',
+      [
+        ['circle', '圓形'],
+        ['rect', '矩形'],
+      ],
+      state.graph.nodeShape,
+      (value) => {
+        state.graph.nodeShape = value;
+        state.graph.focus = null;
+        render();
+      }
+    );
 
     const check = (key, text) => {
       const label = el('label', 'graph-check');
