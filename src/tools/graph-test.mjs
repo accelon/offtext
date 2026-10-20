@@ -175,13 +175,27 @@ const nodeShape = await evaluate(`(() => {
   };
 })()`);
 
-const edgeStyle = await evaluate(`(() => {
+const edgeStyle = await evaluate(`(async () => {
   const forward = document.querySelector('.graph-edge.is-forward');
+  const forwardDash = forward ? getComputedStyle(forward).strokeDasharray : '';
+  const forwardWidth = forward ? getComputedStyle(forward).strokeWidth : '';
+  const backCountBefore = document.querySelectorAll('.graph-edge.is-back').length;
+
+  document.querySelector('#graphForward').click();
+  await new Promise((r) => setTimeout(r, 300));
   const back = document.querySelector('.graph-edge.is-back');
+  const backDash = back ? getComputedStyle(back).strokeDasharray : '';
+  const backCountAfter = document.querySelectorAll('.graph-edge.is-back').length;
+
+  document.querySelector('#graphForward').click();
+  await new Promise((r) => setTimeout(r, 300));
   return {
-    forward: forward ? getComputedStyle(forward).strokeDasharray : '',
-    back: back ? getComputedStyle(back).strokeDasharray : '',
-    forwardWidth: forward ? getComputedStyle(forward).strokeWidth : '',
+    forward: forwardDash,
+    back: backDash,
+    forwardWidth,
+    backCountBefore,
+    backCountAfter,
+    restored: document.querySelectorAll('.graph-edge.is-back').length,
   };
 })()`);
 

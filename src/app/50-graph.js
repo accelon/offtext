@@ -279,12 +279,20 @@
     }
 
     const edges = [];
-    const seen = new Set();
+    const byDirection = new Map();
     const addEdge = (from, to, kind) => {
-      const key = from + '|' + to + '|' + kind;
-      if (seen.has(key)) return;
-      seen.add(key);
-      edges.push({ from, to, kind, tree: tree.has(pairKey(from, to)) });
+      // 同一組 from→to 只留一條線。順鏈與逆鏈同時開啟時，兩者會指向
+      // 同一個方向；若兩條都畫，後畫的虛線會蓋掉前面的實線。
+      const key = from + '|' + to;
+      const existing = byDirection.get(key);
+      if (existing) {
+        if (existing.kind === 'back' && kind === 'forward') existing.kind = 'forward';
+        existing.tree = tree.has(pairKey(from, to));
+        return;
+      }
+      const edge = { from, to, kind, tree: tree.has(pairKey(from, to)) };
+      byDirection.set(key, edge);
+      edges.push(edge);
     };
 
     for (const id of nodes.keys()) {
@@ -824,10 +832,10 @@
     if (focus) {
       litNodes.add(focus.id);
       for (const edge of graph.edges) {
-        if (focus.mode === 1 && edge.kind === 'forward' && edge.from === focus.id) {
+        if (focus.mode === 1 && edge.from === focus.id) {
           litEdges.add(edge);
           litNodes.add(edge.to);
-        } else if (focus.mode === 2 && edge.kind === 'back' && edge.to === focus.id) {
+        } else if (focus.mode === 2 && edge.to === focus.id) {
           litEdges.add(edge);
           litNodes.add(edge.from);
         }
@@ -897,7 +905,10 @@
       const y2 = b.y - uy * endGap + oy;
 
       let cls = 'graph-edge is-' + edge.kind + (edge.tree ? ' is-tree' : ' is-extra');
-      if (focus) cls += litEdges.has(edge) ? ' is-lit' : ' is-dim';
+      if (focus) {
+        if (litEdges.has(edge)) cls += ' is-lit' + (focus.mode === 2 ? ' is-inverse' : '');
+        else cls += ' is-dim';
+      }
 
       const line = svgEl('line', {
         class: cls,

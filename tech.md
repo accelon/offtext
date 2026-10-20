@@ -67,6 +67,7 @@ src/
 - `node src/tools/knowledge-audit.mjs` 輸出樞紐、基礎節點、環與反轉候選。
 - 圖譜選取節點後顯示「設成中心」，以 `navigateGraph(..., { recenter: true })` 留在圖譜模式換根。
 - 圖譜邊線使用 SVG marker `graph-arrow`，順鏈（實線）與逆鏈（虛線）都指向目標。
+- `buildGraph` 以 `from→to` 去重，同時有 forward／back 時保留 forward，避免後畫的逆鏈虛線蓋住順鏈實線；聚焦逆鏈時加 `.is-inverse` 顯示虛線。
 - 圖譜節點可切圓形／矩形；矩形依文字寬高計算尺寸，碰撞改用 AABB，畫布高度再乘 0.8，節點多時更緊湊。
 - 圖譜的層數、連線長度、線粗、節點形狀是 `.seg` 多態按鈕：群組 id 如 `#graphDepth`，按鈕用 `data-value` 與 `aria-pressed` 表示選取，不再使用 `<select>`。
 - 圖譜設定浮在畫布右側；捲過畫布頂端後改成 fixed，背景 80% 不透明且不模糊，節點仍可見。畫布高度依節點數縮短，減少上下留白。

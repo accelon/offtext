@@ -1229,6 +1229,11 @@ html[data-theme="dark"] .hover-card {
   stroke-dasharray: none;
 }
 
+/* 聚焦逆鏈時，即使是同一條 forward 線，也改用虛線表示方向。 */
+.graph-edge.is-inverse {
+  stroke-dasharray: 5 4;
+}
+
 .graph-edge.is-lit {
   stroke: hsl(var(--hue) 70% 40%);
   stroke-width: calc(var(--graph-edge-width, 2.4px) * 1.7);
