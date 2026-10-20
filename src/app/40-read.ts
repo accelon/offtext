@@ -199,7 +199,7 @@
     return span;
   }
 
-  function render(options) {
+  function render(options?: any) {
     const opts = options || {};
     document.body.classList.toggle('is-mobile-ui', state.uiMode === 'mobile');
     const scrollY = window.scrollY;

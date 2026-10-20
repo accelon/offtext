@@ -264,7 +264,7 @@
     }
   }
 
-  function bootWithDomains(nextDomains, options) {
+  function bootWithDomains(nextDomains, options?: any) {
     DATA = nextDomains;
     state.readOnly = false;
     dirtyDomains.clear();

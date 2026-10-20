@@ -36,7 +36,7 @@
 
   function paintUiMode() {
     const buttons = [...document.querySelectorAll('#uiSeg button')];
-    buttons.forEach((button) => {
+    buttons.forEach((button: any) => {
       const active = button.dataset.ui === state.uiMode;
       button.classList.toggle('is-active', active);
       button.setAttribute('aria-pressed', String(active));
@@ -68,7 +68,7 @@
     location.reload();
   }
 
-  document.querySelectorAll('#uiSeg button').forEach((button) => {
+  document.querySelectorAll('#uiSeg button').forEach((button: any) => {
     button.addEventListener('click', () => setUiMode(button.dataset.ui));
   });
   paintUiMode();
@@ -157,7 +157,7 @@
 
   document.addEventListener('keydown', (e) => {
     if (SETTINGS && SETTINGS.isOpen()) return;
-    const active = document.activeElement;
+    const active: any = document.activeElement;
     const typing =
       /^(INPUT|SELECT|TEXTAREA)$/.test(active.tagName) ||
       active.isContentEditable ||

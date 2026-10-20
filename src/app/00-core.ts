@@ -17,7 +17,7 @@
 
   let DATA = window.OFFTEXT_DOMAINS || null;
 
-  const state = {
+  const state: any = {
     index: NT.buildIndex(DATA || []),
     mode: 'auto',
     expanded: new Set(),
@@ -84,7 +84,7 @@
   const FORCED_MOBILE = uiMode.forced;
   state.uiMode = uiMode.mode;
 
-  const $ = (sel) => document.querySelector(sel);
+  const $ = (sel: string): any => document.querySelector(sel);
   const reader = $('#reader');
   const subjectSelect = $('#subject');
   const viewToggle = $('#viewToggle');
@@ -122,13 +122,13 @@
   }
 
   // 只存在記憶體、尚未寫回 TSV 的科目。
-  const dirtyDomains = new Set();
+  const dirtyDomains = new Set<string>();
 
   /*
    * 編輯中的草稿：domain:key → {domain,key,value,base,seq}。
    * 打字只更新這裡，不重建索引；按「存檔」才 commit + 檢查 + 重建。
    */
-  const drafts = new Map();
+  const drafts = new Map<string, any>();
   let draftSeq = 0;
   let entryController = null;
   let orphanPanel = null;
@@ -148,7 +148,7 @@
     return !key || String(key).startsWith('@');
   }
 
-  function el(tag, cls, text) {
+  function el(tag: string, cls?: string, text?: any): any {
     const node = document.createElement(tag);
     if (cls) node.className = cls;
     if (text != null) node.textContent = text;

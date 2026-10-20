@@ -31,16 +31,16 @@ import {
   startCompletion,
 } from '@codemirror/autocomplete';
 import { bracketMatching } from '@codemirror/language';
-import { charLength, parseSpans } from './parse.js';
+import { charLength, parseSpans } from './parse.ts';
 
-export { parseSpans, charLength } from './parse.js';
+export { parseSpans, charLength } from './parse.ts';
 
-const refreshEffect = StateEffect.define();
-const insertedEffect = StateEffect.define();
+const refreshEffect = StateEffect.define<any>();
+const insertedEffect = StateEffect.define<any>();
 
 /* ---------- 小工具 ---------- */
 
-function el(tag, cls, text) {
+function el(tag, cls?, text?) {
   const node = document.createElement(tag);
   if (cls) node.className = cls;
   if (text != null) node.textContent = text;
@@ -75,6 +75,7 @@ function lineOf(doc, pos) {
 /* ---------- 系統插入標記的「取消」按鈕 ---------- */
 
 class CancelInsertedWidget extends WidgetType {
+  mark: any;
   constructor(mark) {
     super();
     this.mark = mark;
@@ -160,6 +161,7 @@ const insertedField = StateField.define({
 /* ---------- 裝飾用的 widget ---------- */
 
 class TextWidget extends WidgetType {
+  text: any;
   constructor(text) {
     super();
     this.text = text;
@@ -176,6 +178,7 @@ class TextWidget extends WidgetType {
 }
 
 class RefWidget extends WidgetType {
+  opts: any;
   constructor(opts) {
     super();
     this.opts = opts;
@@ -307,6 +310,7 @@ class RefWidget extends WidgetType {
 }
 
 class BlockWidget extends WidgetType {
+  opts: any;
   constructor(opts) {
     super();
     this.opts = opts;
@@ -399,7 +403,7 @@ function createNestedView(parentOpts, text, domain, key, ancestors, path) {
   dom.style.setProperty('--hue', String(host.hue(depth)));
   dom.style.setProperty('--depth', String(depth));
 
-  const ctx = {
+  const ctx: any = {
     session,
     host,
     domain,
@@ -420,10 +424,11 @@ function createNestedView(parentOpts, text, domain, key, ancestors, path) {
     parent: dom,
   });
   ctx.view = view;
-  view.cmContext = ctx;
+  (view as any).cmContext = ctx;
   session.views.add(view);
+  // 外層以 focusout 判斷游標是否離開整個條目。
   view.dom.addEventListener('focusin', (event) => {
-    if (event.target.closest('.cm-editor') !== view.dom) return;
+    if ((event.target as any).closest('.cm-editor') !== view.dom) return;
     session.lastActiveView = view;
   });
 
@@ -874,14 +879,14 @@ function extensionsFor(ctx, nested) {
 
 function createEntry(options) {
   const opts = options || {};
-  const session = {
+  const session: any = {
     views: new Set(),
     lastActiveView: null,
     destroyed: false,
     displayVersion: 0,
   };
 
-  const ctx = {
+  const ctx: any = {
     session,
     host: opts.host,
     domain: opts.domain,
@@ -915,13 +920,13 @@ function createEntry(options) {
   shell.style.setProperty('--hue', String(ctx.host.hue(ctx.depth)));
   shell.style.setProperty('--depth', String(ctx.depth));
   ctx.view = view;
-  view.cmContext = ctx;
+  (view as any).cmContext = ctx;
   session.views.add(view);
   // 供測試／除錯讀取目前 view；不影響 CM6 內部。
-  shell.__cmView = view;
+  (shell as any).__cmView = view;
 
   view.dom.addEventListener('focusin', (event) => {
-    if (event.target.closest('.cm-editor') !== view.dom) return;
+    if ((event.target as any).closest('.cm-editor') !== view.dom) return;
     session.lastActiveView = view;
   });
 
@@ -996,7 +1001,7 @@ function createEntry(options) {
       } catch (e) {
         /* 尚未量測 */
       }
-      const parentCtx = active.cmContext || null;
+      const parentCtx = (active as any).cmContext || null;
       return {
         text,
         from: range.from,

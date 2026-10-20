@@ -1,0 +1,29 @@
+version: '3'
+
+# 這個 Taskfile 只是把 npm scripts 包一層，讓 `wails3 task build` 可用。
+# 真正的建置順序寫在 scripts/build-desktop.mjs：前端 → assets → syso → go build。
+tasks:
+  build:
+    desc: 建置 Windows 桌面版（前端 + assets + syso + go build）
+    cmds:
+      - node scripts/build-desktop.mjs
+
+  build:console:
+    desc: 建置有 console 的除錯版
+    cmds:
+      - node scripts/build-desktop.mjs --console
+
+  assets:
+    desc: 只把 build/ 同步到 desktop/assets
+    cmds:
+      - node scripts/sync-assets.mjs
+
+  selftest:
+    desc: 不開窗的桌面版自檢
+    cmds:
+      - node scripts/selftest.mjs
+
+  smoke:
+    desc: 開窗並用 CDP 驗證
+    cmds:
+      - node tests/smoke-cdp.mjs

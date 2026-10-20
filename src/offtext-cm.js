@@ -1,4 +1,4 @@
-/* GENERATED FILE — 由 src/tools/build-editor.mjs 從 src/editor/*.js 產生；請勿直接編輯。 */
+/* GENERATED FILE — 由 src/tools/build-editor.mjs 從 src/editor/*.ts 產生；請勿直接編輯。 */
 var OfftextCM = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -18,7 +18,7 @@ var OfftextCM = (() => {
   };
   var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
-  // src/editor/index.js
+  // src/editor/index.ts
   var index_exports = {};
   __export(index_exports, {
     charLength: () => charLength,
@@ -18894,7 +18894,7 @@ var OfftextCM = (() => {
   ];
   var completionKeymapExt = /* @__PURE__ */ Prec.highest(/* @__PURE__ */ keymap.computeN([completionConfig], (state) => state.facet(completionConfig).defaultKeymap ? [completionKeymap] : []));
 
-  // src/editor/parse.js
+  // src/editor/parse.ts
   function parseRefInner(inner) {
     let display = null;
     let target = String(inner);
@@ -18953,7 +18953,7 @@ var OfftextCM = (() => {
     return Array.from(String(text == null ? "" : text)).length;
   }
 
-  // src/editor/index.js
+  // src/editor/index.ts
   var refreshEffect = StateEffect.define();
   var insertedEffect = StateEffect.define();
   function el(tag, cls, text) {
@@ -18982,6 +18982,7 @@ var OfftextCM = (() => {
     return doc2.lineAt(Math.max(0, Math.min(doc2.length, pos)));
   }
   var CancelInsertedWidget = class extends WidgetType {
+    mark;
     constructor(mark) {
       super();
       this.mark = mark;
@@ -19056,6 +19057,7 @@ var OfftextCM = (() => {
     )
   });
   var TextWidget = class extends WidgetType {
+    text;
     constructor(text) {
       super();
       this.text = text;
@@ -19071,6 +19073,7 @@ var OfftextCM = (() => {
     }
   };
   var RefWidget = class extends WidgetType {
+    opts;
     constructor(opts) {
       super();
       this.opts = opts;
@@ -19166,6 +19169,7 @@ var OfftextCM = (() => {
     }
   };
   var BlockWidget = class extends WidgetType {
+    opts;
     constructor(opts) {
       super();
       this.opts = opts;

@@ -57,7 +57,7 @@ AGI	@aijargon:通用人工智能
 
 ## 索引與鏈結
 
-`src/nestedtext-core.js` 的 `buildIndex()` 一次算出：
+`src/nestedtext-core.ts` 的 `buildIndex()` 一次算出：
 
 - `links.forward`：每個條目的順鏈目標集合。
 - `links.backward`：每個條目的逆鏈來源集合（首頁不列入）。

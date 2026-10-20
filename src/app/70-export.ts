@@ -101,7 +101,7 @@ html[data-theme="dark"] .export-hover{box-shadow:0 16px 40px rgba(0,0,0,.55)}
       ? window.matchMedia('(hover: hover) and (pointer: fine)').matches
       : true;
 
-    function el(tag, cls, text) {
+    function el(tag, cls?, text?) {
       var node = document.createElement(tag);
       if (cls) node.className = cls;
       if (text != null) node.textContent = text;
@@ -181,7 +181,7 @@ html[data-theme="dark"] .export-hover{box-shadow:0 16px 40px rgba(0,0,0,.55)}
       return null;
     }
 
-    function closeCards(from) {
+    function closeCards(from?: any) {
       var start = from ? cards.indexOf(from) : 0;
       if (start < 0) return;
       for (var i = start; i < cards.length; i++) cards[i].remove();

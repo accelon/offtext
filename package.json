@@ -4,9 +4,16 @@
   "private": true,
   "description": "巢式文字 Offtext：以 CodeMirror 6 編輯與閱讀同一份巢狀文字。",
   "scripts": {
+    "build:lib": "node src/tools/build-lib.mjs",
     "build:app": "node src/tools/build-app.mjs",
     "build:editor": "node src/tools/build-editor.mjs",
-    "build": "node src/tools/build-app.mjs && node src/tools/build-editor.mjs && node src/tools/build.mjs",
+    "build:web": "node src/tools/build.mjs",
+    "typecheck": "tsc -p tsconfig.json",
+    "build": "node src/tools/build-all.mjs",
+    "desktop:assets": "node desktop/scripts/sync-assets.mjs",
+    "desktop:build": "node desktop/scripts/build-desktop.mjs",
+    "desktop:selftest": "node desktop/scripts/selftest.mjs",
+    "desktop:smoke": "node desktop/tests/smoke-cdp.mjs",
     "serve": "node src/tools/serve.mjs",
     "test:core": "node src/tools/test-core.mjs",
     "test:editor": "node src/tools/cm-test.mjs",
@@ -16,6 +23,7 @@
     "test:mobile": "node src/tools/mobile-test.mjs",
     "test:tour": "node src/tools/tour-test.mjs",
     "test:export": "node src/tools/export-test.mjs",
+    "test:save": "node src/tools/save-test.mjs",
     "test:contrast": "node src/tools/contrast-test.mjs",
     "test:topbar": "node src/tools/topbar-test.mjs --width=1100",
     "audit:knowledge": "node src/tools/knowledge-audit.mjs",
@@ -29,6 +37,7 @@
     "@codemirror/view": "^6.43.14"
   },
   "devDependencies": {
-    "esbuild": "^0.25.0"
+    "esbuild": "^0.25.0",
+    "typescript": "^5.9.3"
   }
 }

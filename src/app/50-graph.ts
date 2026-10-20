@@ -14,7 +14,7 @@
   }
   const SVG_NS = 'http://www.w3.org/2000/svg';
 
-  function svgEl(tag, attrs) {
+  function svgEl(tag, attrs?: any) {
     const node = document.createElementNS(SVG_NS, tag);
     if (attrs) {
       for (const [key, value] of Object.entries(attrs)) {
@@ -769,7 +769,7 @@
 
   /** 圖譜設定跟著捲動：離開畫布頂端後改成 fixed，仍貼在右側。 */
   function updateGraphPanelFloat() {
-    const panel = document.querySelector('.graph-panel');
+    const panel: any = document.querySelector('.graph-panel');
     if (!panel || state.view !== 'graph') return;
     const stage = panel.closest('.graph-stage');
     if (!stage) return;
@@ -1080,7 +1080,7 @@
 
   function graphContentWidth() {
     const style = getComputedStyle(reader);
-    const pad = parseFloat(style.paddingLeft || 0) + parseFloat(style.paddingRight || 0);
+    const pad = parseFloat(style.paddingLeft || '0') + parseFloat(style.paddingRight || '0');
     return Math.max(320, Math.round(reader.clientWidth - pad));
   }
 
@@ -1405,7 +1405,7 @@
     const controls = el('div', 'index-controls');
     const views = el('nav', 'index-views');
     views.setAttribute('aria-label', '節點連線檢視');
-    const viewButtons = {};
+    const viewButtons: any = {};
     INDEX_VIEWS.forEach(([key, label]) => {
       const active = key === state.indexView;
       const btn = el('button', 'index-view' + (active ? ' is-active' : ''));
@@ -1459,7 +1459,7 @@
       const base = indexBaseRows();
       const counts = indexViewCounts(base);
 
-      Object.entries(viewButtons).forEach(([key, item]) => {
+      Object.entries(viewButtons as Record<string, any>).forEach(([key, item]) => {
         item.count.textContent = String(counts[key]);
         const active = state.indexView === key;
         item.button.classList.toggle('is-active', active);
@@ -1589,7 +1589,7 @@
     main.append(top);
 
     const meta = el('span', 'index-meta');
-    const addStat = (text, title, extra) => {
+    const addStat = (text, title, extra?: any) => {
       const stat = el('span', 'index-stat' + (extra ? ' ' + extra : ''), text);
       stat.title = title;
       meta.append(stat);

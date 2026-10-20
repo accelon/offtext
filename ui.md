@@ -6,7 +6,7 @@
 
 - 桌面與手機都能看、展開、hover、索引、搜尋、圖譜。
 - 不顯示「編輯／存檔／孤兒／Export」。
-- 本機 `file://` 或 `localhost` 加 `?edit=1` 才開啟編輯，供測試與日後 EXE 版沿用；部署網域即使加 `?edit=1` 仍只讀。
+- 本機 `file://`、`localhost` 或 Wails 桌面版的 `wails.localhost` 加 `?edit=1` 才開啟編輯；部署網域即使加 `?edit=1` 仍只讀。桌面版的存檔走 Go 的 `POST /api/tsv/<file>`，行為與 localhost 相同。
 
 ## 啟動
 

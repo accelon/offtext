@@ -14,7 +14,7 @@
   let loadOverlay = null;
   let dirtyOverlay = null;
   let toastEl = null;
-  const fileHandles = new Map(); // domainId -> { handle, name, meta }
+  const fileHandles = new Map<string, any>(); // domainId -> { handle, name, meta }
 
   function dataDomain(domainId) {
     return Array.isArray(DATA) ? DATA.find((domain) => domain.id === domainId) : null;
@@ -93,7 +93,7 @@
         body: text,
       });
     } catch (e) {
-      const err = new Error('無法連線到儲存伺服器');
+      const err: any = new Error('無法連線到儲存伺服器');
       err.fallback = true;
       throw err;
     }
@@ -106,7 +106,7 @@
       /* 不是 JSON */
     }
     if (response.status === 404 || response.status === 405) {
-      const err = new Error('此 HTTP 伺服器沒有儲存 API');
+      const err: any = new Error('此 HTTP 伺服器沒有儲存 API');
       err.fallback = true;
       throw err;
     }
@@ -223,7 +223,7 @@
     return { loaded, skipped };
   }
 
-  function showMissingTarget(tok, contextDomain, res) {
+  function showMissingTarget(tok, contextDomain, res?: any) {
     closeLoadMore();
     const backdrop = el('div', 'edit-backdrop');
     const panel = el('section', 'edit-panel load-panel');
@@ -308,8 +308,8 @@
     }
     toastEl.textContent = text;
     toastEl.classList.add('is-visible');
-    clearTimeout(showToast.timer);
-    showToast.timer = setTimeout(() => toastEl.classList.remove('is-visible'), 2600);
+    clearTimeout((showToast as any).timer);
+    (showToast as any).timer = setTimeout(() => toastEl.classList.remove('is-visible'), 2600);
   }
 
   function hideAddTerm() {
@@ -351,7 +351,7 @@
         hideAddTerm();
         return;
       }
-      if (element.closest('.nt-ref, .nt-exp, .entry-head, .graph, .cm-editor')) {
+      if ((element as any).closest('.nt-ref, .nt-exp, .entry-head, .graph, .cm-editor')) {
         hideAddTerm();
         return;
       }
@@ -776,10 +776,10 @@
   }
 
   function findUnlinkedMentions(domainId, key) {
-    const domain = dataDomain(domainId);
+    const domain: any = dataDomain(domainId);
     if (!domain) return [];
     const groups = [];
-    for (const [fromKey, value] of Object.entries(domain.entries || {})) {
+    for (const [fromKey, value] of Object.entries(domain.entries || {}) as [string, any][]) {
       if (fromKey === key || isReservedKey(fromKey)) continue;
       if (isRedirect(value)) continue;
       const hits = [];

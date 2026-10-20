@@ -196,7 +196,7 @@
     return NT.backlinksFor(state.index, targetId);
   }
 
-  function defaultRoute() {
+  function defaultRoute(): any {
     const first = domains.find((d) => d.entries.has('_')) || domains[0];
     if (!first) return null;
     return {

@@ -4,7 +4,7 @@
 > 專案根目錄：`D:\2026\offtext`  
 > 文件版本：2026-10-19
 > **2026-10-19 更新：編輯器已改為 CodeMirror 6。閱讀與編輯共用同一個 `EditorView`；`src/editor/` 是原始碼，`src/offtext-cm.js` 是 esbuild 產生的 IIFE bundle。§8 已改寫；舊 textarea 編輯器只在 bundle 載入失敗時作為 fallback。**
-> **後續更新：科目 id 已改為 kebab-case（`ancient-china`、`world-history`），顯示名改為「中國近代史」；`src/nestedtext.js` 已拆成 `src/app/*.js`，由 `src/tools/build-app.mjs` 串成 `src/offtext-app.js`。本文部分舊檔名只保留歷史對照。**
+> **後續更新：科目 id 已改為 kebab-case（`ancient-china`、`world-history`），顯示名改為「中國近代史」；`src/nestedtext.js` 已拆成 `src/app/*.ts`，由 `src/tools/build-app.mjs` 串成 `src/offtext-app.js`；前端原始碼已全面改為 TypeScript（產生檔仍是 `.js`）。本文部分舊檔名只保留歷史對照。**
 
 ---
 

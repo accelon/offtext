@@ -78,17 +78,17 @@
     node.click();
   }
 
-  function tourFindIndexRow(key) {
+  function tourFindIndexRow(key): any {
     return [...document.querySelectorAll('.index-item')].find(
-      (row) => row.dataset.key === key
+      (row: any) => row.dataset.key === key
     ) || null;
   }
 
-  function tourFindRef(labels) {
+  function tourFindRef(labels): any {
     const wanted = Array.isArray(labels) ? labels : [labels];
     const nodes = [...document.querySelectorAll('.cm-ref, .nt-ref')];
     return (
-      nodes.find((node) => {
+      nodes.find((node: any) => {
         if (!tourVisible(node)) return false;
         const text = (node.textContent || '').trim();
         const ref = node.dataset.ref || '';
@@ -247,7 +247,7 @@
 
     tourLayer.addEventListener('click', (event) => {
       if (!tourRunning) return;
-      if (event.target.closest('.tour-close, .tour-next')) return;
+      if ((event.target as any).closest('.tour-close, .tour-next')) return;
       event.preventDefault();
       advanceTour();
     });
@@ -447,7 +447,7 @@
   }
 
   function setIndexSortForTour(value) {
-    const select = document.querySelector('#indexSort');
+    const select: any = document.querySelector('#indexSort');
     if (!select) throw new Error('index sort missing');
     select.value = value;
     select.dispatchEvent(new Event('change', { bubbles: true }));
@@ -513,7 +513,7 @@
           '點開它。接著看它怎麼用引用，把「參數」、「權重」和「神經元」串成一條鏈。',
         target: () => tourFindIndexRow('大型語言模型'),
         action: () => {
-          const row = tourFindIndexRow('大型語言模型');
+          const row: any = tourFindIndexRow('大型語言模型');
           if (!row) throw new Error('大型語言模型 not found');
           row.querySelector('.index-main').click();
         },
@@ -645,7 +645,7 @@
 
     document.addEventListener('click', (event) => {
       if (!tourMenuOpen) return;
-      if (tourMenu.contains(event.target) || tourBtn.contains(event.target)) return;
+      if (tourMenu.contains(event.target as any) || tourBtn.contains(event.target as any)) return;
       setTourMenuOpen(false);
     });
 

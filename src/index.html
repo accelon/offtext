@@ -180,12 +180,13 @@
   <script src="nestedtext-settings.js"></script>
   <script src="nestedtext-core.js"></script>
   <script>
-    /* 線上只讀；本機 file:// 或 localhost 可用 ?edit=1 開啟編輯，供測試與日後 EXE 版。 */
+    /* 線上只讀；本機 file://、localhost 或 Wails 桌面版可用 ?edit=1 開啟編輯。 */
     (function () {
       var local =
         location.protocol === 'file:' ||
         location.hostname === '127.0.0.1' ||
-        location.hostname === 'localhost';
+        location.hostname === 'localhost' ||
+        location.hostname === 'wails.localhost';
       var wantsEdit = new URLSearchParams(location.search).get('edit') === '1';
       window.OFFTEXT_READONLY_ONLY = !(local && wantsEdit);
     })();

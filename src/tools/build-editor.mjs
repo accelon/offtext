@@ -1,4 +1,4 @@
-// 將 src/editor/index.js 打包成單一 IIFE，讓 file:// 也能用 <script> 載入。
+// 將 src/editor/index.ts 打包成單一 IIFE，讓 file:// 也能用 <script> 載入。
 // 用法：node src/tools/build-editor.mjs
 import fs from 'node:fs';
 import path from 'node:path';
@@ -8,7 +8,7 @@ const ROOT = path.resolve(import.meta.dirname, '../..');
 const OUT = path.join(ROOT, 'src', 'offtext-cm.js');
 
 const result = await build({
-  entryPoints: [path.join(ROOT, 'src', 'editor', 'index.js')],
+  entryPoints: [path.join(ROOT, 'src', 'editor', 'index.ts')],
   bundle: true,
   format: 'iife',
   globalName: 'OfftextCM',
@@ -20,7 +20,7 @@ const result = await build({
     'process.env.NODE_ENV': '"production"',
   },
   banner: {
-    js: '/* GENERATED FILE — 由 src/tools/build-editor.mjs 從 src/editor/*.js 產生；請勿直接編輯。 */',
+    js: '/* GENERATED FILE — 由 src/tools/build-editor.mjs 從 src/editor/*.ts 產生；請勿直接編輯。 */',
   },
   write: false,
 });

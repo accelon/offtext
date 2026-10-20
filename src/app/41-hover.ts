@@ -17,7 +17,7 @@
     hoverCloseTimer = 0;
   }
 
-  function closeHoverCards(fromCard) {
+  function closeHoverCards(fromCard?: any) {
     const start = fromCard ? hoverCards.indexOf(fromCard) : 0;
     if (start < 0) return;
     for (const card of hoverCards.slice(start)) card.remove();
@@ -136,7 +136,7 @@
     }, 220);
   }
 
-  function hoverAnchorOf(target) {
+  function hoverAnchorOf(target: any) {
     const anchor = target && target.closest ? target.closest('.cm-ref, .nt-ref') : null;
     if (!anchor || !reader.contains(anchor) || !anchor.dataset.ref) return null;
     if (isExpandedAnchor(anchor)) return null;
@@ -159,7 +159,7 @@
 
   document.addEventListener('click', (event) => {
     if (hoverLayer.hidden) return;
-    if (event.target.closest('.hover-card')) return;
+    if ((event.target as any).closest('.hover-card')) return;
     if (hoverAnchorOf(event.target)) return;
     clearHoverTimers();
     closeHoverCards();

@@ -7,6 +7,8 @@ Offtext 是一種以 `^[...]` 標記的巢狀文字：正文保持可讀，引�
 - 一份 plain text 加 offtag，適合序列化、合併與轉成 Obsidian backlink 文件。
 - 詞典網路以 DAG 為理想：高階概念由基本概念組成，不用高階概念回頭定義基本概念。
 
+前端原始碼已改為 TypeScript（`src/**/*.ts`），建置後產生瀏覽器用的 `.js`；型別只求能檢查、不追求一次補完。Windows 桌面版是 Wails v3 宿主，執行檔會讀取自己旁邊的 `data/*.tsv`。詳見 [desktop/README.md](desktop/README.md)。
+
 ## 文件
 
 | 文件 | 內容 |
@@ -34,22 +36,33 @@ node src/tools/serve.mjs --port 8123
 
 HTTP 開 `http://127.0.0.1:8123/`（會轉到 `build/index.html`）；它會讀 `data/data-index.txt` 自動載入列出的科目，直接進主畫面。`file://` 直接開 `build/index.html`，才顯示「選擇本機 TSV…」載入頁。
 
-- 線上版只提供閱讀：桌面與手機都能展開、hover、索引、搜尋與圖譜，不顯示編輯／存檔／孤兒／Export。
-- 本機 `file://` 或 `localhost` 加 `?edit=1` 才開啟編輯，供測試與日後單機 EXE 版沿用；部署網域即使加 `?edit=1` 仍只讀。
+桌面版（Windows）：
+
+```powershell
+npm run desktop:build      # 建置前端、同步 assets、產生 syso、go build
+npm run desktop:selftest   # headless 檢查內嵌前端與 data/*.tsv
+npm run desktop:smoke      # 開窗並用 CDP 驗證頁面、runtime.js、服務橋
+```
+
+執行檔在 `offtext-desktop/offtext.exe`（此目錄是 junction，實際位置以 `Get-Item offtext-desktop` 為準），`data/` 必須與執行檔同層。
+
+- 網站版一律唯讀：桌面與手機都能展開、hover、索引、搜尋與圖譜，不顯示編輯／存檔／孤兒／Export。即使網址加 `?edit=1` 也不會開啟編輯；目前不開放使用者寫網站文件。
+- 本機 `file://`、`localhost` 或 Wails 桌面版的 `wails.localhost` 加 `?edit=1` 才開啟編輯。桌面版由 Go 以 `/?edit=1` 啟動，存檔走與 localhost 相同的 `POST /api/tsv/<file>`。
 - 桌面閱讀使用 CodeMirror 6；閱讀只是唯讀，游標仍在。手機不載入 CM6。
-- 本機編輯模式的改動先存在草稿；按「存檔（N）」才檢查、重建索引，並在可用時寫回 TSV。
+- 本機編輯模式的改動先存在草稿；按「存檔（N）」才檢查、重建索引，並寫回 TSV（HTTP／桌面）或另存檔案（file://）。
 - 設置可調閱讀字級 12–24px（標題、正文、輸入區、反鏈接）；圖譜節點字級在圖譜面板另設。
 - 右上角 🦮 導覽：快速入門約一分鐘，帶過介面、索引排序與展開引用；進階設置與編輯文本先預留。
 - 文字／圖譜用單一 toggle；圖譜選取節點後可用「設成中心」換根，不必按 Ctrl。
 
 ## 資料
 
-`data/` 目前有 16 個科目、1,830 個內容條目。科目清單與統計見 [knowledge.md](knowledge.md)。資料檔不預先打包；HTTP 啟動時只讀 `data/data-index.txt` 的清單，再逐一 fetch TSV 內容。要改載入哪些科目，編輯 `data/data-index.txt` 即可（一行一個檔名，`#` 開頭是註解）。
+`data/` 目前有 16 個科目、1,830 個內容條目。科目清單與統計見 [knowledge.md](knowledge.md)。資料檔不預先打包；HTTP 啟動時只讀 `data/data-index.txt` 的清單，再逐一 fetch TSV 內容。桌面版啟動時會掃描執行檔旁的 `data/`，把所有 `*.tsv` 一次讀入記憶體；`data-index.txt` 只用來決定科目順序，沒列到的新 TSV 也會自動載入。要改網頁版載入哪些科目，編輯 `data/data-index.txt` 即可（一行一個檔名，`#` 開頭是註解）。
 
 ## 建置與驗證
 
 ```powershell
 npm run build
+npm run typecheck
 node src/tools/test-core.mjs
 node src/tools/test-simplified.mjs
 node src/tools/knowledge-audit.mjs
@@ -60,7 +73,12 @@ node src/tools/hover-test.mjs
 node src/tools/intext-test.mjs
 node src/tools/mobile-test.mjs
 node src/tools/export-test.mjs
+node src/tools/save-test.mjs
 node src/tools/topbar-test.mjs
+
+npm run desktop:build      # 桌面版程式改完後才重建 exe
+npm run desktop:selftest
+npm run desktop:smoke
 ```
 
 完整的測試與部署說明見 [tech.md](tech.md)。部署前先跑 `node src/tools/deploy-offtext.mjs --check`。

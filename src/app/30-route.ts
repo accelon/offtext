@@ -3,7 +3,7 @@
  */
   /* ---------- 路由 ---------- */
 
-  function readRoute() {
+  function readRoute(): any {
     const h = location.hash.replace(/^#\/?/, '');
     if (!h) return null;
 
@@ -43,7 +43,7 @@
 
   function applyRoute() {
     if (!domains.length) return;
-    let route = readRoute() || defaultRoute();
+    let route: any = readRoute() || defaultRoute();
     if (!route) return;
 
     // 舊科目 id 換成新 id，網址也一併換掉。
@@ -174,7 +174,7 @@
     render();
   }
 
-  function navigate(domain, key, options) {
+  function navigate(domain, key, options?: any) {
     const opts = options || {};
     domain = canonicalDomainId(domain);
     const canon = canonicalKey(domain, key);
@@ -192,7 +192,7 @@
     }
   }
 
-  function navigateIndex(domain) {
+  function navigateIndex(domain?: any) {
     state.expanded.clear();
     state.focusPath = null;
     state.backlink = null;
@@ -210,7 +210,7 @@
     else location.hash = h;
   }
 
-  function navigateGraph(domain, key, options) {
+  function navigateGraph(domain, key, options?: any) {
     const canon = canonicalKey(domain, key);
     const h = '#/graph/' + encodeURIComponent(canon.domain) + '/' + encodeURIComponent(canon.key);
     state.backlink = null;

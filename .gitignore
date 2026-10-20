@@ -10,9 +10,18 @@
 
 # npm／本機設定／暫存
 /node_modules/
+/src/.tmp/
 /.tmp-cm/
 /.tmp-*
 .local/
 *.log
 *.tmp
 /.opt-analysis.mjs
+
+# Wails 桌面版：assets 由 build/ 同步、syso 由 CLI 產生；執行檔與資料在
+# offtext-desktop/（junction 到 repo 外），不進版控。
+/desktop/assets/
+/desktop/app.syso
+/desktop/tests/shots/
+/desktop/*.exe
+/offtext-desktop/
