@@ -18969,6 +18969,7 @@ var OfftextCM = (() => {
     if (!focusPath) return "";
     if (path === focusPath) return " is-focus-current";
     if (focusPath.startsWith(path + ".")) return " is-focus-ancestor";
+    if (path.startsWith(focusPath + ".")) return "";
     return " is-dim";
   }
   function selectionTouches(state, from, to) {

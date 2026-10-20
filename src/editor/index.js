@@ -55,6 +55,9 @@ function focusClass(path, focusPath) {
   if (!focusPath) return '';
   if (path === focusPath) return ' is-focus-current';
   if (focusPath.startsWith(path + '.')) return ' is-focus-ancestor';
+  // 焦點路徑所指的展開內容也是「目前這條路徑」的一部分；
+  // 內容裡的引用（例如法律條文中的「國家」）不應因其路徑更長而被淡出。
+  if (path.startsWith(focusPath + '.')) return '';
   return ' is-dim';
 }
 

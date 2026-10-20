@@ -184,6 +184,7 @@ const expanded = await evaluate(`(() => ({
   refs: document.querySelectorAll('.cm-ref').length,
   focusCurrent: document.querySelectorAll('.is-focus-current').length,
   dim: document.querySelectorAll('.is-dim').length,
+  nestedDim: document.querySelectorAll('.cm-nested .is-dim').length,
   dimText: document.querySelectorAll('.cm-focus-dim-text').length,
   focusing: document.querySelector('#reader').classList.contains('is-focusing'),
 }))()`);
@@ -483,8 +484,11 @@ if (shot.result && shot.result.data) {
 
 console.log('exceptions', exceptions);
 console.log('logs', logs.slice(-10));
+if (expanded.nestedDim > 0) {
+  console.error('展開內容裡的可點引用不應被焦點模式淡出：' + expanded.nestedDim + ' 個');
+}
 
 ws.close();
 child.kill();
 await sleep(300);
-process.exit(exceptions.length ? 2 : 0);
+process.exit(exceptions.length ? 2 : expanded.nestedDim > 0 ? 4 : 0);
