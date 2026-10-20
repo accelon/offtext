@@ -445,6 +445,7 @@
       fontSize: 12,
       edgeLength: 'medium',
       edgeWidth: 'medium',
+      nodeShape: 'circle',
       focus: null,
       recenter: false,
     };

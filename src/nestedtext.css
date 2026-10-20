@@ -1111,6 +1111,10 @@ html[data-theme="dark"] .hover-card {
   border-top: 1.5px solid var(--muted);
 }
 
+.graph-legend-line.is-forward {
+  border-top-style: solid;
+}
+
 .graph-legend-line.is-back {
   border-top-style: dashed;
 }
@@ -1211,6 +1215,11 @@ html[data-theme="dark"] .hover-card {
   stroke-dasharray: 5 4;
 }
 
+/* 順鏈結固定實線；只有逆鏈結用虛線。 */
+.graph-edge.is-forward {
+  stroke-dasharray: none;
+}
+
 .graph-edge.is-lit {
   stroke: hsl(var(--hue) 70% 40%);
   stroke-width: calc(var(--graph-edge-width, 2.4px) * 1.7);
@@ -1229,19 +1238,19 @@ html[data-theme="dark"] .hover-card {
   outline: none;
 }
 
-.graph-node:focus-visible .graph-node-circle {
+.graph-node:focus-visible .graph-node-shape {
   stroke-width: 3;
 }
 
-.graph-node-circle {
-  /* 亮底／護眼：節點要看得出來是「有底色的圓」，不能只靠描邊。
+.graph-node-shape {
+  /* 亮底／護眼：節點要看得出來是「有底色的形狀」，不能只靠描邊。
      86% 亮度在淺色紙面上仍有明顯色塊，文字（24%）也保持對比。 */
   fill: hsl(var(--hue) 58% 86%);
   stroke: hsl(var(--hue) 55% 48%);
   stroke-width: 1.5;
 }
 
-html[data-theme="eye"] .graph-node-circle {
+html[data-theme="eye"] .graph-node-shape {
   fill: hsl(var(--hue) 50% 84%);
 }
 
@@ -1261,16 +1270,16 @@ html[data-theme="eye"] .graph-node-circle {
   opacity: 0.8;
 }
 
-.graph-node.is-root .graph-node-circle {
+.graph-node.is-root .graph-node-shape {
   stroke-width: 2.6;
 }
 
-.graph-node.is-selected .graph-node-circle {
+.graph-node.is-selected .graph-node-shape {
   stroke-width: 3.5;
   stroke: hsl(var(--hue) 70% 40%);
 }
 
-.graph-node.is-lit .graph-node-circle {
+.graph-node.is-lit .graph-node-shape {
   stroke-width: 2.2;
 }
 
@@ -1338,7 +1347,7 @@ html[data-theme="eye"] .graph-node-circle {
   overflow-wrap: anywhere;
 }
 
-html[data-theme="dark"] .graph-node-circle {
+html[data-theme="dark"] .graph-node-shape {
   fill: hsl(var(--hue) 35% 22%);
   stroke: hsl(var(--hue) 60% 65%);
 }
@@ -1355,12 +1364,12 @@ html[data-theme="dark"] .graph-edge.is-lit {
   stroke: hsl(var(--hue) 80% 70%);
 }
 
-html[data-theme="dark"] .graph-node.is-selected .graph-node-circle {
+html[data-theme="dark"] .graph-node.is-selected .graph-node-shape {
   stroke: hsl(var(--hue) 80% 72%);
 }
 
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme]) .graph-node-circle {
+  :root:not([data-theme]) .graph-node-shape {
     fill: hsl(var(--hue) 35% 22%);
     stroke: hsl(var(--hue) 60% 65%);
   }
@@ -1377,7 +1386,7 @@ html[data-theme="dark"] .graph-node.is-selected .graph-node-circle {
     stroke: hsl(var(--hue) 80% 70%);
   }
 
-  :root:not([data-theme]) .graph-node.is-selected .graph-node-circle {
+  :root:not([data-theme]) .graph-node.is-selected .graph-node-shape {
     stroke: hsl(var(--hue) 80% 72%);
   }
 }

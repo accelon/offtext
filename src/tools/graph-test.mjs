@@ -174,6 +174,102 @@ const nodeShape = await evaluate(`(() => {
     overflow,
   };
 })()`);
+
+const edgeStyle = await evaluate(`(() => {
+  const forward = document.querySelector('.graph-edge.is-forward');
+  const back = document.querySelector('.graph-edge.is-back');
+  return {
+    forward: forward ? getComputedStyle(forward).strokeDasharray : '',
+    back: back ? getComputedStyle(back).strokeDasharray : '',
+    forwardWidth: forward ? getComputedStyle(forward).strokeWidth : '',
+  };
+})()`);
+
+const rectShape = await evaluate(`(async () => {
+  const circleSvg = document.querySelector('.graph-svg');
+  const circleHeight = Math.round(circleSvg.viewBox.baseVal.height);
+  const select = document.querySelector('#graphNodeShape');
+  select.value = 'rect';
+  select.dispatchEvent(new Event('change', { bubbles: true }));
+  await new Promise((r) => setTimeout(r, 350));
+
+  const rectSvg = document.querySelector('.graph-svg');
+  const groups = [...document.querySelectorAll('.graph-node')];
+  const rects = [...document.querySelectorAll('.graph-node-rect')];
+  const overflow = [];
+  const overlaps = [];
+  const boxes = groups.map((group) => {
+    const shape = group.querySelector('.graph-node-shape');
+    const label = group.querySelector('.graph-node-label');
+    const w = Number(shape?.getAttribute('width'));
+    const h = Number(shape?.getAttribute('height'));
+    const box = label?.getBBox();
+    if (box && (box.width > w - 2 || box.height > h - 2)) {
+      overflow.push({ key: group.dataset.key, w, h, textW: Math.round(box.width), textH: Math.round(box.height) });
+    }
+    return { key: group.dataset.key, rect: group.getBoundingClientRect() };
+  });
+  for (let i = 0; i < boxes.length; i++) {
+    for (let j = i + 1; j < boxes.length; j++) {
+      const a = boxes[i].rect;
+      const b = boxes[j].rect;
+      const ox = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+      const oy = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+      if (ox > 1 && oy > 1) overlaps.push([boxes[i].key, boxes[j].key, Math.round(ox), Math.round(oy)]);
+    }
+  }
+  return {
+    circles: document.querySelectorAll('.graph-node-circle').length,
+    rects: rects.length,
+    nodes: groups.length,
+    circleHeight,
+    rectHeight: Math.round(rectSvg.viewBox.baseVal.height),
+    heightDelta: circleHeight - Math.round(rectSvg.viewBox.baseVal.height),
+    overflow,
+    overlaps: overlaps.slice(0, 8),
+    overlapCount: overlaps.length,
+  };
+})()`);
+await shot('shot-graph-rect.png');
+
+const rectDepth3 = await evaluate(`(async () => {
+  const depth = document.querySelector('#graphDepth');
+  depth.value = '3';
+  depth.dispatchEvent(new Event('change', { bubbles: true }));
+  await new Promise((r) => setTimeout(r, 450));
+  const groups = [...document.querySelectorAll('.graph-node')];
+  const boxes = groups.map((group) => ({ key: group.dataset.key, rect: group.getBoundingClientRect() }));
+  let overlapCount = 0;
+  for (let i = 0; i < boxes.length; i++) {
+    for (let j = i + 1; j < boxes.length; j++) {
+      const a = boxes[i].rect;
+      const b = boxes[j].rect;
+      if (Math.min(a.right, b.right) - Math.max(a.left, b.left) > 1 &&
+          Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 1) overlapCount++;
+    }
+  }
+  const overflow = [];
+  groups.forEach((group) => {
+    const shape = group.querySelector('.graph-node-shape');
+    const label = group.querySelector('.graph-node-label');
+    const w = Number(shape?.getAttribute('width'));
+    const h = Number(shape?.getAttribute('height'));
+    const box = label?.getBBox();
+    if (box && (box.width > w - 2 || box.height > h - 2)) overflow.push(group.dataset.key);
+  });
+  return { nodes: groups.length, overlapCount, overflowCount: overflow.length };
+})()`);
+
+await evaluate(`(async () => {
+  const depth = document.querySelector('#graphDepth');
+  depth.value = '2';
+  depth.dispatchEvent(new Event('change', { bubbles: true }));
+  await new Promise((r) => setTimeout(r, 300));
+  const select = document.querySelector('#graphNodeShape');
+  select.value = 'circle';
+  select.dispatchEvent(new Event('change', { bubbles: true }));
+  await new Promise((r) => setTimeout(r, 300));
+})()`);
 await shot('shot-graph-panel.png');
 
 const arrows = await evaluate(`(() => {
@@ -320,6 +416,8 @@ await evaluate("document.querySelector('.graph-panel-toggle').click()");
 await sleep(180);
 const mobileOpen = await evaluate(`(() => {
   const panel = document.querySelector('.graph-panel').getBoundingClientRect();
+  const shape = document.querySelector('#graphNodeShape');
+  const shapeRect = shape?.getBoundingClientRect();
   return {
     innerWidth: window.innerWidth,
     scrollWidth: document.documentElement.scrollWidth,
@@ -327,6 +425,13 @@ const mobileOpen = await evaluate(`(() => {
     panelRight: Math.round(panel.right),
     panelWidth: Math.round(panel.width),
     collapsed: document.querySelector('.graph-panel').classList.contains('is-collapsed'),
+    shapeWidth: shapeRect ? Math.round(shapeRect.width) : 0,
+    shapeLeft: shapeRect ? Math.round(shapeRect.left) : 0,
+    shapeRight: shapeRect ? Math.round(shapeRect.right) : 0,
+    controls: [...document.querySelectorAll('.graph-control')].map((control) => {
+      const rect = control.getBoundingClientRect();
+      return { text: control.textContent.trim(), width: Math.round(rect.width), left: Math.round(rect.left), right: Math.round(rect.right) };
+    }),
   };
 })()`);
 await shot('shot-graph-panel-mobile-open.png');
@@ -357,7 +462,7 @@ const mobileFocusBar = await evaluate(`(async () => {
 
 console.log(
   JSON.stringify(
-    { panelOpen, nodeShape, arrows, edgeThick, edgeBack, panelCollapsed, recentered, focusBar, mobileCollapsed, mobileOpen, mobileFocusBar, exceptions },
+    { panelOpen, nodeShape, edgeStyle, rectShape, rectDepth3, arrows, edgeThick, edgeBack, panelCollapsed, recentered, focusBar, mobileCollapsed, mobileOpen, mobileFocusBar, exceptions },
     null,
     2
   )

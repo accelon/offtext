@@ -109,6 +109,10 @@
   if (['thin', 'medium', 'thick'].includes(initialEdgeWidth)) {
     state.graph.edgeWidth = initialEdgeWidth;
   }
+  const initialShape = query.get('shape');
+  if (initialShape === 'rect' || initialShape === 'circle') {
+    state.graph.nodeShape = initialShape;
+  }
 
 
   // ?expand=0,0.2 可預先展開，方便截圖與除錯。

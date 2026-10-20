@@ -66,7 +66,8 @@ src/
 - `buildDag()` 用 Tarjan SCC 找環，再將分量縮成 DAG 分層；`inversions` 用「基礎度」找基礎概念回頭定義高階概念的邊。
 - `node src/tools/knowledge-audit.mjs` 輸出樞紐、基礎節點、環與反轉候選。
 - 圖譜選取節點後顯示「設成中心」，以 `navigateGraph(..., { recenter: true })` 留在圖譜模式換根。
-- 圖譜邊線使用 SVG marker `graph-arrow`，順鏈與逆鏈都指向目標。
+- 圖譜邊線使用 SVG marker `graph-arrow`，順鏈（實線）與逆鏈（虛線）都指向目標。
+- 圖譜節點可切圓形／矩形；矩形依文字寬高計算尺寸，碰撞改用 AABB，畫布高度再乘 0.8，節點多時更緊湊。
 - 圖譜設定浮在畫布右側；捲過畫布頂端後改成 fixed，背景 80% 不透明且不模糊，節點仍可見。畫布高度依節點數縮短，減少上下留白。
 
 ## 建置

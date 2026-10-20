@@ -131,18 +131,46 @@
     return h / 997;
   }
 
-  function graphRadius(node) {
+  function graphNodeMetrics(node) {
     const size = state.graph.fontSize;
     const value = graphDegree(node.id);
     const base = 12 + Math.min(22, Math.sqrt(value) * 4.5);
     const lines = graphLabel(node.key, node.domain);
-    const pad = 6;
+    const textWidth = Math.max(...lines.map((line) => graphTextWidth(line, size)));
+    const textHeight = (lines.length - 1) * size * 1.1 + size;
+
+    if (state.graph.nodeShape === 'rect') {
+      // 矩形把文字周圍的留白壓到最小；高度比圓形少很多，節點可以排得更密。
+      const padX = node.depth === 0 ? 10 : 6;
+      const padY = node.depth === 0 ? 7 : 4;
+      const w = Math.max(size * 2.8, textWidth + padX * 2, base * 1.35);
+      const h = Math.max(size * 1.7, textHeight + padY * 2, base * 1.05);
+      return { shape: 'rect', w, h, r: (w + h) / 4 };
+    }
+
     const fit = Math.max(
-      ...lines.map((line) => graphTextWidth(line, size) / 2 + pad),
-      (lines.length * size * 1.12) / 2 + pad
+      textWidth / 2 + 6,
+      (lines.length * size * 1.12) / 2 + 6
     );
     const min = node.depth === 0 ? size * 1.9 : size * 1.15;
-    return Math.max(min, base, fit);
+    const r = Math.max(min, base, fit);
+    return { shape: 'circle', w: r * 2, h: r * 2, r };
+  }
+
+  function graphHalfW(node) {
+    return node.shape === 'rect' ? node.w / 2 : node.r;
+  }
+
+  function graphHalfH(node) {
+    return node.shape === 'rect' ? node.h / 2 : node.r;
+  }
+
+  /** 從節點中心沿 (ux, uy) 到邊界的距離；矩形用射線與邊界相交。 */
+  function graphEdgeGap(node, ux, uy, gap) {
+    if (node.shape !== 'rect') return node.r + gap;
+    const tx = Math.abs(ux) > 1e-6 ? node.w / 2 / Math.abs(ux) : Infinity;
+    const ty = Math.abs(uy) > 1e-6 ? node.h / 2 / Math.abs(uy) : Infinity;
+    return Math.min(tx, ty) + gap;
   }
 
   function graphShortDomain(id) {
@@ -277,8 +305,13 @@
 
   function layoutGraph(graph, width, height) {
     const nodes = [...graph.nodes.values()];
+    const rectMode = state.graph.nodeShape === 'rect';
     nodes.forEach((node) => {
-      node.r = graphRadius(node);
+      const metrics = graphNodeMetrics(node);
+      node.shape = metrics.shape;
+      node.w = metrics.w;
+      node.h = metrics.h;
+      node.r = metrics.r;
     });
 
     const cx = width / 2;
@@ -323,7 +356,8 @@
         });
       });
 
-    const baseRest = Math.max(76, Math.min(152, width / 4.6)) * edgeFactor;
+    const baseRest =
+      Math.max(76, Math.min(152, width / 4.6)) * edgeFactor * (rectMode ? 0.9 : 1);
     for (let iter = 0; iter < 240; iter++) {
       for (let i = 0; i < nodes.length; i++) {
         const a = nodes[i];
@@ -378,12 +412,12 @@
         if (node.depth === 0) continue;
         node.x += (cx - node.x) * 0.0004;
         node.y += (cy - node.y) * 0.0004;
-        node.x = Math.max(node.r + 8, Math.min(width - node.r - 8, node.x));
-        node.y = Math.max(node.r + 8, Math.min(height - node.r - 8, node.y));
+        node.x = Math.max(graphHalfW(node) + 8, Math.min(width - graphHalfW(node) - 8, node.x));
+        node.y = Math.max(graphHalfH(node) + 8, Math.min(height - graphHalfH(node) - 8, node.y));
       }
     }
 
-    // 最後再單純推開重疊的圓，讓節點多時仍然讀得到詞目。
+    // 最後再單純推開重疊的節點，讓節點多時仍然讀得到詞目。
     for (let pass = 0; pass < 160; pass++) {
       let moved = false;
       for (let i = 0; i < nodes.length; i++) {
@@ -393,6 +427,24 @@
           let dx = b.x - a.x;
           let dy = b.y - a.y;
           let dist = Math.sqrt(dx * dx + dy * dy);
+
+          if (rectMode) {
+            const overlapX = (a.w + b.w) / 2 + 8 - Math.abs(dx);
+            const overlapY = (a.h + b.h) / 2 + 8 - Math.abs(dy);
+            if (overlapX <= 0 || overlapY <= 0) continue;
+            moved = true;
+            if (overlapX < overlapY) {
+              const push = (dx >= 0 ? 1 : -1) * overlapX * 0.55;
+              if (a.depth !== 0) a.x -= push;
+              if (b.depth !== 0) b.x += push;
+            } else {
+              const push = (dy >= 0 ? 1 : -1) * overlapY * 0.55;
+              if (a.depth !== 0) a.y -= push;
+              if (b.depth !== 0) b.y += push;
+            }
+            continue;
+          }
+
           const min = a.r + b.r + 8;
           if (dist >= min) continue;
           if (dist < 1) {
@@ -415,8 +467,8 @@
         }
       }
       for (const node of nodes) {
-        node.x = Math.max(node.r + 8, Math.min(width - node.r - 8, node.x));
-        node.y = Math.max(node.r + 8, Math.min(height - node.r - 8, node.y));
+        node.x = Math.max(graphHalfW(node) + 8, Math.min(width - graphHalfW(node) - 8, node.x));
+        node.y = Math.max(graphHalfH(node) + 8, Math.min(height - graphHalfH(node) - 8, node.y));
       }
       if (!moved) break;
     }
@@ -427,10 +479,10 @@
     let minY = Infinity;
     let maxY = -Infinity;
     for (const node of nodes) {
-      minX = Math.min(minX, node.x - node.r);
-      maxX = Math.max(maxX, node.x + node.r);
-      minY = Math.min(minY, node.y - node.r);
-      maxY = Math.max(maxY, node.y + node.r);
+      minX = Math.min(minX, node.x - graphHalfW(node));
+      maxX = Math.max(maxX, node.x + graphHalfW(node));
+      minY = Math.min(minY, node.y - graphHalfH(node));
+      maxY = Math.max(maxY, node.y + graphHalfH(node));
     }
     const spanX = Math.max(1, maxX - minX);
     const spanY = Math.max(1, maxY - minY);
@@ -454,8 +506,8 @@
     let maxDy = 0;
     for (const node of nodes) {
       if (node === root) continue;
-      maxDx = Math.max(maxDx, Math.abs(node.x - root.x) + node.r);
-      maxDy = Math.max(maxDy, Math.abs(node.y - root.y) + node.r);
+      maxDx = Math.max(maxDx, Math.abs(node.x - root.x) + graphHalfW(node));
+      maxDy = Math.max(maxDy, Math.abs(node.y - root.y) + graphHalfH(node));
     }
     const fit = Math.min(1, halfW / Math.max(1, maxDx), halfH / Math.max(1, maxDy));
     if (fit < 1) {
@@ -563,6 +615,27 @@
     });
     widthLabel.append(lineWidth);
 
+    const shapeLabel = el('label', 'graph-control');
+    shapeLabel.append(document.createTextNode('節點'));
+    const shape = document.createElement('select');
+    shape.id = 'graphNodeShape';
+    [
+      ['circle', '圓形'],
+      ['rect', '矩形'],
+    ].forEach(([value, text]) => {
+      const option = document.createElement('option');
+      option.value = value;
+      option.textContent = text;
+      shape.append(option);
+    });
+    shape.value = state.graph.nodeShape;
+    shape.addEventListener('change', () => {
+      state.graph.nodeShape = shape.value;
+      state.graph.focus = null;
+      render();
+    });
+    shapeLabel.append(shape);
+
     const check = (key, text) => {
       const label = el('label', 'graph-check');
       const input = document.createElement('input');
@@ -594,6 +667,7 @@
       state.graph.fontSize = 12;
       state.graph.edgeLength = 'medium';
       state.graph.edgeWidth = 'medium';
+      state.graph.nodeShape = 'circle';
       state.graph.focus = null;
       render();
     });
@@ -603,6 +677,7 @@
       fontLabel,
       edgeLabel,
       widthLabel,
+      shapeLabel,
       check('forward', '順鏈結'),
       check('backward', '逆鏈結'),
       count,
@@ -811,10 +886,12 @@
       const sign = edge.from < edge.to ? 1 : -1;
       const ox = -uy * off * sign;
       const oy = ux * off * sign;
-      const x1 = a.x + ux * (a.r + 2) + ox;
-      const y1 = a.y + uy * (a.r + 2) + oy;
-      const x2 = b.x - ux * (b.r + 3) + ox;
-      const y2 = b.y - uy * (b.r + 3) + oy;
+      const startGap = graphEdgeGap(a, ux, uy, 2);
+      const endGap = graphEdgeGap(b, ux, uy, 3);
+      const x1 = a.x + ux * startGap + ox;
+      const y1 = a.y + uy * startGap + oy;
+      const x2 = b.x - ux * endGap + ox;
+      const y2 = b.y - uy * endGap + oy;
 
       let cls = 'graph-edge is-' + edge.kind + (edge.tree ? ' is-tree' : ' is-extra');
       if (focus) cls += litEdges.has(edge) ? ' is-lit' : ' is-dim';
@@ -879,10 +956,39 @@
         '）';
       group.append(title);
 
+      const isRect = node.shape === 'rect';
       if (cross) {
-        group.append(svgEl('circle', { class: 'graph-node-halo', r: node.r + 3 }));
+        if (isRect) {
+          group.append(
+            svgEl('rect', {
+              class: 'graph-node-halo graph-node-rect',
+              x: -node.w / 2 - 3,
+              y: -node.h / 2 - 3,
+              width: node.w + 6,
+              height: node.h + 6,
+              rx: 8,
+            })
+          );
+        } else {
+          group.append(svgEl('circle', { class: 'graph-node-halo', r: node.r + 3 }));
+        }
       }
-      group.append(svgEl('circle', { class: 'graph-node-circle', r: node.r }));
+      if (isRect) {
+        group.append(
+          svgEl('rect', {
+            class: 'graph-node-shape graph-node-rect',
+            x: -node.w / 2,
+            y: -node.h / 2,
+            width: node.w,
+            height: node.h,
+            rx: node.depth === 0 ? 8 : 6,
+          })
+        );
+      } else {
+        group.append(
+          svgEl('circle', { class: 'graph-node-shape graph-node-circle', r: node.r })
+        );
+      }
 
       const lines = graphLabel(node.key, node.domain);
       const text = svgEl('text', {
@@ -902,10 +1008,12 @@
 
       if (cross) {
         const badge = svgEl('g', { class: 'graph-badge' });
-        badge.append(svgEl('circle', { cx: node.r * 0.72, cy: -node.r * 0.72, r: 8 }));
+        const badgeX = isRect ? node.w / 2 - 8 : node.r * 0.72;
+        const badgeY = isRect ? -node.h / 2 - 8 : -node.r * 0.72;
+        badge.append(svgEl('circle', { cx: badgeX, cy: badgeY, r: 8 }));
         const badgeText = svgEl('text', {
-          x: node.r * 0.72,
-          y: -node.r * 0.72 + 2.5,
+          x: badgeX,
+          y: badgeY + 2.5,
           'text-anchor': 'middle',
         });
         badgeText.textContent = graphShortDomain(node.domain);
@@ -966,8 +1074,10 @@
     const fontFactor = 1 + ((state.graph.fontSize - 12) / 12) * 0.65;
     const edgeFactor =
       state.graph.edgeLength === 'short' ? 0.9 : state.graph.edgeLength === 'long' ? 1.15 : 1;
+    // 矩形節點比圓形矮，畫布也可以跟著收一點，讓整張圖更緊湊。
+    const shapeFactor = state.graph.nodeShape === 'rect' ? 0.8 : 1;
     const base = width * 0.44 + Math.max(0, count - 6) * 18;
-    return Math.max(420, Math.min(2800, Math.round(base * fontFactor * edgeFactor)));
+    return Math.max(420, Math.min(2800, Math.round(base * fontFactor * edgeFactor * shapeFactor)));
   }
 
   function renderGraph() {
