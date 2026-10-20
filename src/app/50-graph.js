@@ -1414,6 +1414,8 @@
 
   function indexItem(row) {
     const item = el('div', 'index-item');
+    item.dataset.domain = row.domain;
+    item.dataset.key = row.key;
     const main = el('button', 'index-main');
     main.type = 'button';
     main.title = '閱讀「' + disp(row.key) + '」';

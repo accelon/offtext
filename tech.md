@@ -20,7 +20,8 @@ src/
 │  ├─ 50-graph.js             圖譜
 │  ├─ 60-search.js            搜尋
 │  ├─ 70-export.js            Export 單一 HTML
-│  └─ 80-main.js              初始化與事件接線
+│  ├─ 80-main.js              初始化與事件接線
+│  └─ 90-tour.js              🦮 導覽：聚光燈、5 秒步進、選單與示範腳本
 ├─ offtext-app.js             app bundle（GENERATED，IIFE）
 ├─ nestedtext-settings.js     主題與繁簡三態
 ├─ nestedtext-simplified.js   無損／強制簡體
@@ -38,6 +39,7 @@ src/
 - **巢狀**：展開的引用在 widget 內再掛一個唯讀 `EditorView`，共用同一組 decoration／theme／resolve 規則。
 - **手機**：不載入 CM6，使用 DOM 渲染；HTTP(S) 啟動時同樣讀 `data-index.txt` 自動載入。
 - **啟動載入**：HTTP(S) 讀 `data/data-index.txt`（一行一個 TSV）直接進主畫面；`file://` 才顯示本機選檔頁。`?data=id1,id2` 仍可指定科目。
+- **導覽**：右上角 🦮 開三個項目；快速入門約 13 步 × 5 秒，點畫面可提前，Esc／× 可隨時結束。進階設置與編輯文本先預留。
 - **hover／export**：用 DOM renderer，不建 CM6 view；export runtime 自帶解析與渲染，不依賴外部檔案。手機與 hover 的 DOM 渲染沿用 `src/app/40-read.js` 的 `renderDoc`／`renderRef`。
 - **lazy CM6**：`index.html` 不直接載入 `offtext-cm.js`；桌面 boot 時才由 `ensureCM()` 注入。手機完全不下载。
 
@@ -90,6 +92,7 @@ node src/tools/cm-file-test.mjs
 node src/tools/cm-block-test.mjs
 node src/tools/http-test.mjs
 node src/tools/boot-test.mjs
+node src/tools/tour-test.mjs
 node src/tools/hover-test.mjs
 node src/tools/intext-test.mjs
 node src/tools/mobile-test.mjs

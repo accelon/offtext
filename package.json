@@ -14,6 +14,7 @@
     "test:hover": "node src/tools/hover-test.mjs",
     "test:intext": "node src/tools/intext-test.mjs",
     "test:mobile": "node src/tools/mobile-test.mjs",
+    "test:tour": "node src/tools/tour-test.mjs",
     "test:export": "node src/tools/export-test.mjs",
     "test:contrast": "node src/tools/contrast-test.mjs",
     "test:topbar": "node src/tools/topbar-test.mjs --width=1100",
