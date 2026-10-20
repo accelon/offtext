@@ -149,6 +149,43 @@ const escape = await evaluate(`(async () => {
   return { open, after: document.querySelectorAll('.hover-card').length };
 })()`);
 console.log('escape', JSON.stringify(escape, null, 2));
+
+const expandHover = await evaluate(`(async () => {
+  location.hash = '#/aijargon/' + encodeURIComponent('人工神經元');
+  await new Promise((r) => setTimeout(r, 700));
+  const first = () => document.querySelector('.cm-ref');
+  if (!first()) return { error: 'no cm-ref after navigation' };
+
+  first().dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+  await new Promise((r) => setTimeout(r, 450));
+  const openBefore = document.querySelectorAll('.hover-card').length;
+
+  first().dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  await new Promise((r) => setTimeout(r, 350));
+  const expandedAnchor = first();
+  const afterExpand = {
+    expanded: expandedAnchor.getAttribute('aria-expanded'),
+    open: !!document.querySelector('.cm-refwrap.is-open'),
+    cards: document.querySelectorAll('.hover-card').length,
+  };
+
+  expandedAnchor.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+  await new Promise((r) => setTimeout(r, 450));
+  afterExpand.cardsAfterHover = document.querySelectorAll('.hover-card').length;
+
+  expandedAnchor.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  await new Promise((r) => setTimeout(r, 350));
+  const collapsedAnchor = first();
+  collapsedAnchor.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+  await new Promise((r) => setTimeout(r, 450));
+  return {
+    openBefore,
+    ...afterExpand,
+    collapsed: collapsedAnchor.getAttribute('aria-expanded'),
+    cardsAfterCollapseHover: document.querySelectorAll('.hover-card').length,
+  };
+})()`);
+console.log('expandHover', JSON.stringify(expandHover, null, 2));
 console.log('exceptions', exceptions.length, exceptions.map((e) => e.text));
 
 ws.close();

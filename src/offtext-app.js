@@ -1914,6 +1914,8 @@
   }
 
   function toggleEditorPath(path) {
+    clearHoverTimers();
+    closeHoverCards();
     if (state.expanded.has(path)) closePath(path);
     else {
       state.expanded.add(path);
@@ -2679,6 +2681,8 @@
   }
 
   function toggle(path) {
+    clearHoverTimers();
+    closeHoverCards();
     if (state.expanded.has(path)) {
       closePath(path);
     } else {
@@ -3142,7 +3146,12 @@
     return body;
   }
 
+  function isExpandedAnchor(anchor) {
+    return !!anchor && anchor.getAttribute && anchor.getAttribute('aria-expanded') === 'true';
+  }
+
   function openHoverCard(anchor, parentCard) {
+    if (isExpandedAnchor(anchor)) return null;
     const ref = anchor && anchor.dataset ? anchor.dataset.ref : '';
     if (!ref) return null;
     const res = editorResolve(ref, anchor.dataset.domain || null, anchor.dataset.context || null);
@@ -3181,6 +3190,7 @@
 
   function scheduleHover(anchor, parentCard) {
     if (state.uiMode === 'mobile' || state.editing || !anchor || !anchor.dataset || !anchor.dataset.ref) return;
+    if (isExpandedAnchor(anchor)) return;
     clearHoverTimers();
     hoverOpenTimer = setTimeout(() => {
       hoverOpenTimer = 0;
@@ -3200,6 +3210,7 @@
   function hoverAnchorOf(target) {
     const anchor = target && target.closest ? target.closest('.cm-ref, .nt-ref') : null;
     if (!anchor || !reader.contains(anchor) || !anchor.dataset.ref) return null;
+    if (isExpandedAnchor(anchor)) return null;
     return anchor;
   }
 
@@ -5182,6 +5193,7 @@ html[data-theme="dark"] .export-hover{box-shadow:0 16px 40px rgba(0,0,0,.55)}
 
     function showCard(res, anchor, parent) {
       if (!pointerFine) return;
+      if (anchor && anchor.getAttribute && anchor.getAttribute('aria-expanded') === 'true') return;
       if (parent) {
         clearTimeout(parent.__closeTimer);
         var existing = cards.indexOf(parent);
@@ -5248,12 +5260,14 @@ html[data-theme="dark"] .export-hover{box-shadow:0 16px 40px rgba(0,0,0,.55)}
         return wrap;
       }
       btn.title = '^[' + tok.inner + ']：點擊展開' + (pointerFine ? '；Ctrl/⌘+點擊開啟' : '');
+      btn.setAttribute('aria-expanded', String(expanded.has(path)));
       btn.addEventListener('click', function (event) {
         if ((event.ctrlKey || event.metaKey) && pointerFine) {
           event.preventDefault();
           openRoot(res.id);
           return;
         }
+        closeCards();
         if (expanded.has(path)) expanded.delete(path);
         else expanded.add(path);
         renderRoot();

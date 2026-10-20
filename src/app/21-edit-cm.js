@@ -279,6 +279,8 @@
   }
 
   function toggleEditorPath(path) {
+    clearHoverTimers();
+    closeHoverCards();
     if (state.expanded.has(path)) closePath(path);
     else {
       state.expanded.add(path);

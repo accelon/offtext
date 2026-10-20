@@ -75,7 +75,12 @@
     return body;
   }
 
+  function isExpandedAnchor(anchor) {
+    return !!anchor && anchor.getAttribute && anchor.getAttribute('aria-expanded') === 'true';
+  }
+
   function openHoverCard(anchor, parentCard) {
+    if (isExpandedAnchor(anchor)) return null;
     const ref = anchor && anchor.dataset ? anchor.dataset.ref : '';
     if (!ref) return null;
     const res = editorResolve(ref, anchor.dataset.domain || null, anchor.dataset.context || null);
@@ -114,6 +119,7 @@
 
   function scheduleHover(anchor, parentCard) {
     if (state.uiMode === 'mobile' || state.editing || !anchor || !anchor.dataset || !anchor.dataset.ref) return;
+    if (isExpandedAnchor(anchor)) return;
     clearHoverTimers();
     hoverOpenTimer = setTimeout(() => {
       hoverOpenTimer = 0;
@@ -133,6 +139,7 @@
   function hoverAnchorOf(target) {
     const anchor = target && target.closest ? target.closest('.cm-ref, .nt-ref') : null;
     if (!anchor || !reader.contains(anchor) || !anchor.dataset.ref) return null;
+    if (isExpandedAnchor(anchor)) return null;
     return anchor;
   }
 

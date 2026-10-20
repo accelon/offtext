@@ -238,6 +238,7 @@ html[data-theme="dark"] .export-hover{box-shadow:0 16px 40px rgba(0,0,0,.55)}
 
     function showCard(res, anchor, parent) {
       if (!pointerFine) return;
+      if (anchor && anchor.getAttribute && anchor.getAttribute('aria-expanded') === 'true') return;
       if (parent) {
         clearTimeout(parent.__closeTimer);
         var existing = cards.indexOf(parent);
@@ -304,12 +305,14 @@ html[data-theme="dark"] .export-hover{box-shadow:0 16px 40px rgba(0,0,0,.55)}
         return wrap;
       }
       btn.title = '^[' + tok.inner + ']：點擊展開' + (pointerFine ? '；Ctrl/⌘+點擊開啟' : '');
+      btn.setAttribute('aria-expanded', String(expanded.has(path)));
       btn.addEventListener('click', function (event) {
         if ((event.ctrlKey || event.metaKey) && pointerFine) {
           event.preventDefault();
           openRoot(res.id);
           return;
         }
+        closeCards();
         if (expanded.has(path)) expanded.delete(path);
         else expanded.add(path);
         renderRoot();

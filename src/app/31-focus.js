@@ -22,6 +22,8 @@
   }
 
   function toggle(path) {
+    clearHoverTimers();
+    closeHoverCards();
     if (state.expanded.has(path)) {
       closePath(path);
     } else {

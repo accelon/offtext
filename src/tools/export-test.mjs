@@ -129,18 +129,7 @@ const initial = await evaluate(`(() => ({
 }))()`);
 console.log('initial', initial);
 
-const expand = await evaluate(`(async () => {
-  const ref = document.querySelector('.nt-ref');
-  ref.click();
-  await new Promise((r) => setTimeout(r, 200));
-  return {
-    expanded: document.querySelectorAll('.nt-exp-inline').length,
-    text: document.querySelector('.nt-exp-inline')?.textContent.slice(0, 40),
-  };
-})()`);
-console.log('expand', expand);
-
-const hover = await evaluate(`(async () => {
+const hoverCollapsed = await evaluate(`(async () => {
   const ref = document.querySelector('.nt-ref');
   ref.dispatchEvent(new MouseEvent('mouseenter', { bubbles: false }));
   await new Promise((r) => setTimeout(r, 250));
@@ -150,7 +139,45 @@ const hover = await evaluate(`(async () => {
     nested: document.querySelectorAll('.export-hover .nt-ref').length,
   };
 })()`);
-console.log('hover', hover);
+console.log('hoverCollapsed', hoverCollapsed);
+
+const expand = await evaluate(`(async () => {
+  const ref = document.querySelector('.nt-ref');
+  ref.click();
+  await new Promise((r) => setTimeout(r, 200));
+  const after = document.querySelector('.nt-ref');
+  return {
+    expanded: after.getAttribute('aria-expanded'),
+    expandedBlocks: document.querySelectorAll('.nt-exp-inline').length,
+    text: document.querySelector('.nt-exp-inline')?.textContent.slice(0, 40),
+    cardsAfterExpand: document.querySelectorAll('.export-hover').length,
+  };
+})()`);
+console.log('expand', expand);
+
+const hoverExpanded = await evaluate(`(async () => {
+  const ref = document.querySelector('.nt-ref');
+  ref.dispatchEvent(new MouseEvent('mouseenter', { bubbles: false }));
+  await new Promise((r) => setTimeout(r, 250));
+  return {
+    cards: document.querySelectorAll('.export-hover').length,
+    expanded: ref.getAttribute('aria-expanded'),
+  };
+})()`);
+console.log('hoverExpanded', hoverExpanded);
+
+const collapse = await evaluate(`(async () => {
+  document.querySelector('.nt-ref').click();
+  await new Promise((r) => setTimeout(r, 200));
+  const ref = document.querySelector('.nt-ref');
+  ref.dispatchEvent(new MouseEvent('mouseenter', { bubbles: false }));
+  await new Promise((r) => setTimeout(r, 250));
+  return {
+    expanded: ref.getAttribute('aria-expanded'),
+    cards: document.querySelectorAll('.export-hover').length,
+  };
+})()`);
+console.log('collapse', collapse);
 
 const shot = await send('Page.captureScreenshot', { format: 'png' });
 fs.writeFileSync(path.join(BUILD, 'shots', 'export-runtime.png'), Buffer.from(shot.result.data, 'base64'));
