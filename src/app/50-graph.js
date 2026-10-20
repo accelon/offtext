@@ -675,10 +675,42 @@
       } catch (e) {
         /* 私密模式 */
       }
+      updateGraphPanelFloat();
     });
 
     return panel;
   }
+
+  /** 圖譜設定跟著捲動：離開畫布頂端後改成 fixed，仍貼在右側。 */
+  function updateGraphPanelFloat() {
+    const panel = document.querySelector('.graph-panel');
+    if (!panel || state.view !== 'graph') return;
+    const stage = panel.closest('.graph-stage');
+    if (!stage) return;
+    const topbar = document.querySelector('.topbar');
+    const top = Math.round((topbar ? topbar.getBoundingClientRect().bottom : 0) + 10);
+    const stageRect = stage.getBoundingClientRect();
+    const shouldFloat = stageRect.top < top && stageRect.bottom > top + 120;
+
+    panel.classList.toggle('is-floating', shouldFloat);
+    if (!shouldFloat) {
+      panel.style.top = '';
+      panel.style.right = '';
+      panel.style.left = '';
+      panel.style.width = '';
+      return;
+    }
+
+    const width = Math.min(370, Math.max(180, Math.round(stageRect.width - 20)));
+    panel.style.top = top + 'px';
+    panel.style.right =
+      Math.max(10, Math.round(window.innerWidth - stageRect.right + 10)) + 'px';
+    panel.style.left = 'auto';
+    panel.style.width = panel.classList.contains('is-collapsed') ? 'auto' : width + 'px';
+  }
+
+  window.addEventListener('scroll', updateGraphPanelFloat, { passive: true });
+  window.addEventListener('resize', updateGraphPanelFloat);
 
   function renderGraphFocusBar(graph) {
     const focus = state.graph.focus;
@@ -934,8 +966,8 @@
     const fontFactor = 1 + ((state.graph.fontSize - 12) / 12) * 0.65;
     const edgeFactor =
       state.graph.edgeLength === 'short' ? 0.9 : state.graph.edgeLength === 'long' ? 1.15 : 1;
-    const base = width * 0.55 + Math.max(0, count - 6) * 24;
-    return Math.max(460, Math.min(2800, Math.round(base * fontFactor * edgeFactor)));
+    const base = width * 0.44 + Math.max(0, count - 6) * 18;
+    return Math.max(420, Math.min(2800, Math.round(base * fontFactor * edgeFactor)));
   }
 
   function renderGraph() {
@@ -1013,6 +1045,7 @@
     }
 
     reader.append(article);
+    requestAnimationFrame(updateGraphPanelFloat);
   }
 
   /* ---------- 索引：用 graph 連線數探索節點 ---------- */

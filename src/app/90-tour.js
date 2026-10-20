@@ -552,11 +552,18 @@
         },
       },
       {
+        title: '切到圖譜',
+        text:
+          '最後，把同一個條目切到圖譜模式：看它和相鄰條目的連線。',
+        target: () => document.querySelector('#viewToggle'),
+        action: () => switchView('graph'),
+      },
+      {
         title: '完成',
         text:
-          '一分鐘到了。你剛剛走過：介面 → 索引 → 引用鏈。<br>' +
+          '一分鐘到了。你剛剛走過：介面 → 索引 → 引用鏈 → 圖譜。<br>' +
           '這份導覽可以隨時從右上角 🦮 重看。',
-        target: null,
+        target: () => document.querySelector('.graph-canvas'),
       },
     ];
   }

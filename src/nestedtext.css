@@ -903,7 +903,11 @@ html[data-theme="dark"] .hover-card {
   border-radius: 12px;
   background: color-mix(in srgb, var(--panel) 80%, transparent);
   box-shadow: 0 10px 30px rgba(30, 25, 18, 0.16);
-  backdrop-filter: blur(10px) saturate(1.05);
+}
+
+.graph-panel.is-floating {
+  position: fixed;
+  z-index: 19;
 }
 
 .graph-panel.is-collapsed {

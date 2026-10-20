@@ -38,7 +38,7 @@ src/
 - **巢狀**：展開的引用在 widget 內再掛一個唯讀 `EditorView`，共用同一組 decoration／theme／resolve 規則。
 - **手機**：不載入 CM6，使用 DOM 渲染；HTTP(S) 啟動時同樣讀 `data-index.txt` 自動載入。
 - **啟動載入**：HTTP(S) 讀 `data/data-index.txt`（一行一個 TSV）直接進主畫面；`file://` 才顯示本機選檔頁。`?data=id1,id2` 仍可指定科目。
-- **導覽**：右上角 🦮 開三個項目；快速入門約 13 步 × 5 秒，點畫面可提前，Esc／× 可隨時結束。進階設置與編輯文本先預留。
+- **導覽**：右上角 🦮 開三個項目；快速入門約 14 步 × 5 秒，點畫面可提前，Esc／× 可隨時結束，最後停在圖譜模式。進階設置與編輯文本先預留。
 - **索引入口**：頂欄最左邊的單色小屋圖示；頂欄不再另設搜尋框，搜尋只在索引頁。
 - **hover／export**：用 DOM renderer，不建 CM6 view；export runtime 自帶解析與渲染，不依賴外部檔案。手機與 hover 的 DOM 渲染沿用 `src/app/40-read.js` 的 `renderDoc`／`renderRef`。
 - **lazy CM6**：`index.html` 不直接載入 `offtext-cm.js`；桌面 boot 時才由 `ensureCM()` 注入。手機完全不下载。
@@ -67,6 +67,7 @@ src/
 - `node src/tools/knowledge-audit.mjs` 輸出樞紐、基礎節點、環與反轉候選。
 - 圖譜選取節點後顯示「設成中心」，以 `navigateGraph(..., { recenter: true })` 留在圖譜模式換根。
 - 圖譜邊線使用 SVG marker `graph-arrow`，順鏈與逆鏈都指向目標。
+- 圖譜設定浮在畫布右側；捲過畫布頂端後改成 fixed，背景 80% 不透明且不模糊，節點仍可見。畫布高度依節點數縮短，減少上下留白。
 
 ## 建置
 

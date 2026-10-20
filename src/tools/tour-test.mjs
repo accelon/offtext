@@ -149,32 +149,37 @@ const expectedTitles = [
   '展開參數',
   '展開權重',
   '展開神經元',
+  '切到圖譜',
   '完成',
 ];
 const seen = [];
-for (let index = 1; index < 13; index++) {
+for (let index = 1; index < 14; index++) {
   await waitFor(`window.OfftextTour.state().step === ${index}`, '第 ' + (index + 1) + ' 步');
   const title = await evaluate('window.OfftextTour.state().title');
   assert(title === expectedTitles[index - 1], '第 ' + (index + 1) + ' 步標題不對：' + title);
-  if (index <= 11) {
-    await waitFor(
-      'window.OfftextTour.state().target === true && window.OfftextTour.state().note === ""',
-      '第 ' + (index + 1) + ' 步目標'
-    );
-  }
+  await waitFor(
+    'window.OfftextTour.state().target === true && window.OfftextTour.state().note === ""',
+    '第 ' + (index + 1) + ' 步目標'
+  );
   const state = await evaluate('window.OfftextTour.state()');
-  if (index <= 11) {
-    assert(state.target, '第 ' + (index + 1) + ' 步沒有 spotlight 目標');
-    assert(state.spotRect, '第 ' + (index + 1) + ' 步沒有 spotlight');
-    const target = state.targetRect;
-    const spot = state.spotRect;
-    assert(
-      spot.left <= target.left &&
-        spot.top <= target.top &&
-        spot.left + spot.width >= target.left + target.width &&
-        spot.top + spot.height >= target.top + target.height,
-      'spotlight 沒有框住第 ' + (index + 1) + ' 步目標'
+  assert(state.target, '第 ' + (index + 1) + ' 步沒有 spotlight 目標');
+  assert(state.spotRect, '第 ' + (index + 1) + ' 步沒有 spotlight');
+  const target = state.targetRect;
+  const spot = state.spotRect;
+  assert(
+    spot.left <= target.left &&
+      spot.top <= target.top &&
+      spot.left + spot.width >= target.left + target.width &&
+      spot.top + spot.height >= target.top + target.height,
+    'spotlight 沒有框住第 ' + (index + 1) + ' 步目標'
+  );
+  if (index === 12) {
+    const expanded = await evaluate(
+      `[...document.querySelectorAll('.cm-ref[aria-expanded="true"]')].map((n) => n.textContent.trim())`
     );
+    for (const label of ['參數', '權重', '神經元']) {
+      assert(expanded.includes(label), '切到圖譜前沒有展開 ' + label);
+    }
   }
   seen.push({ index, title, target: state.target });
   await evaluate(`document.querySelector('#tourNext').click()`);
@@ -185,16 +190,15 @@ await waitFor('!window.OfftextTour.state().running', '導覽結束');
 const final = await evaluate(`(() => ({
   hash: decodeURIComponent(location.hash),
   title: document.querySelector('.entry-title')?.textContent,
-  expanded: [...document.querySelectorAll('.cm-ref[aria-expanded="true"]')].map((n) => n.textContent.trim()),
+  graph: !!document.querySelector('.graph-canvas'),
+  graphSvg: !!document.querySelector('.graph-canvas svg'),
   layerHidden: document.querySelector('#tourLayer').hidden,
   view: window.OfftextTour.state().indexView,
   sort: window.OfftextTour.state().indexSort,
 }))()`);
-assert(final.hash.includes('/aijargon/大型語言模型'), '沒有開到大型語言模型：' + final.hash);
-assert(final.title === '大型語言模型', '條目標題不對：' + final.title);
-for (const label of ['參數', '權重', '神經元']) {
-  assert(final.expanded.includes(label), '沒有展開 ' + label);
-}
+assert(final.hash.includes('/graph/aijargon/大型語言模型'), '最後不在圖譜模式：' + final.hash);
+assert(final.title === '大型語言模型', '圖譜標題不對：' + final.title);
+assert(final.graph && final.graphSvg, '最後沒有圖譜畫布');
 assert(final.layerHidden, '導覽結束後 overlay 沒有隱藏');
 assert(final.view === 'both', '沒有切到有順有逆');
 assert(final.sort === 'back', '沒有切到逆鏈排序');
