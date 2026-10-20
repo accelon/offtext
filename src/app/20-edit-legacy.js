@@ -416,7 +416,6 @@
       entryController = null;
     }
     hideAddTerm();
-    hideSearch();
     hideGraphTip();
 
     drafts.clear();

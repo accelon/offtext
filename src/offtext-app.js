@@ -92,8 +92,6 @@
 
   const $ = (sel) => document.querySelector(sel);
   const reader = $('#reader');
-  const searchInput = $('#search');
-  const searchResults = $('#searchResults');
   const subjectSelect = $('#subject');
   const viewToggle = $('#viewToggle');
   const readHistorySelect = $('#readHistory');
@@ -1156,7 +1154,6 @@
       entryController = null;
     }
     hideAddTerm();
-    hideSearch();
     hideGraphTip();
 
     drafts.clear();
@@ -2606,7 +2603,6 @@
     key = canon.key;
     if (!opts.keepBacklink) state.backlink = null;
     const h = '#/' + encodeURIComponent(domain) + '/' + encodeURIComponent(key);
-    hideSearch();
     state.expanded.clear();
     state.focusPath = null;
     window.scrollTo(0, 0);
@@ -2618,7 +2614,6 @@
   }
 
   function navigateIndex(domain) {
-    hideSearch();
     state.expanded.clear();
     state.focusPath = null;
     state.backlink = null;
@@ -2639,7 +2634,6 @@
   function navigateGraph(domain, key, options) {
     const canon = canonicalKey(domain, key);
     const h = '#/graph/' + encodeURIComponent(canon.domain) + '/' + encodeURIComponent(canon.key);
-    hideSearch();
     state.backlink = null;
     state.expanded.clear();
     state.focusPath = null;
@@ -4914,72 +4908,6 @@
     return box;
   }
 
-/* ---- 60-search.js ---- */
-/* 搜尋
- * 由 src/nestedtext.js 拆出；建置時依檔名順序串成同一個 IIFE。
- */
-  /* ---------- 搜尋 ---------- */
-
-  let searchHits = [];
-
-  function hideSearch() {
-    searchResults.hidden = true;
-    searchResults.textContent = '';
-    searchInput.setAttribute('aria-expanded', 'false');
-    searchHits = [];
-  }
-
-  function score(entry, needle) {
-    if (entry.keyForms.some((form) => form.startsWith(needle))) return 3;
-    if (entry.keyForms.some((form) => form.includes(needle))) return 2;
-    return 1;
-  }
-
-  function renderSearch() {
-    const needle = searchInput.value.trim().toLowerCase();
-    if (!needle) {
-      hideSearch();
-      return;
-    }
-
-    searchHits = entries
-      .filter((entry) => entry.hay.includes(needle))
-      .sort((a, b) => score(b, needle) - score(a, needle))
-      .slice(0, 12);
-
-    searchResults.textContent = '';
-
-    if (!searchHits.length) {
-      searchResults.append(el('div', 'search-empty', '沒有符合「' + searchInput.value.trim() + '」的條目'));
-    } else {
-      searchHits.forEach((entry) => {
-        const item = el('button', 'search-item');
-        item.type = 'button';
-        const head = el('span', 'search-head');
-        head.append(el('span', 'search-key', disp(entry.key)));
-        head.append(el('span', 'search-domain', disp(entry.domainName)));
-        item.append(head);
-        item.append(el('span', 'search-preview', entry.preview));
-        item.addEventListener('click', () => {
-          searchInput.value = '';
-          navigate(entry.domain, entry.key);
-        });
-        searchResults.append(item);
-      });
-    }
-
-    searchResults.hidden = false;
-    searchInput.setAttribute('aria-expanded', 'true');
-  }
-
-  function moveSearchFocus(step) {
-    const items = [...searchResults.querySelectorAll('.search-item')];
-    if (!items.length) return;
-    const current = items.indexOf(document.activeElement);
-    const next = current === -1 ? (step > 0 ? 0 : items.length - 1) : (current + step + items.length) % items.length;
-    items[next].focus();
-  }
-
 /* ---- 70-export.js ---- */
 /* Export 單一 HTML
  * 由 src/nestedtext.js 拆出；建置時依檔名順序串成同一個 IIFE。
@@ -5533,58 +5461,6 @@ html[data-theme="dark"] .export-hover{box-shadow:0 16px 40px rgba(0,0,0,.55)}
   const initialFocus = query.get('focus');
   if (initialFocus) state.focusPath = initialFocus.trim();
 
-  searchInput.addEventListener('input', renderSearch);
-  searchInput.addEventListener('focus', () => {
-    if (searchInput.value.trim()) renderSearch();
-  });
-
-  // ?q=gpu 可直接開啟搜尋結果（展示、除錯用）
-  const initialQuery = query.get('q');
-  if (initialQuery) {
-    searchInput.value = initialQuery;
-    renderSearch();
-  }
-
-  searchInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-      searchInput.value = '';
-      hideSearch();
-      searchInput.blur();
-    } else if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      moveSearchFocus(1);
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      moveSearchFocus(-1);
-    } else if (e.key === 'Enter' && searchHits.length) {
-      e.preventDefault();
-      const first = searchResults.querySelector('.search-item');
-      if (first) first.click();
-    }
-  });
-
-  searchResults.addEventListener('keydown', (e) => {
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      moveSearchFocus(1);
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      moveSearchFocus(-1);
-    } else if (e.key === 'Escape') {
-      searchInput.focus();
-      hideSearch();
-    }
-  });
-
-  document.addEventListener('click', (e) => {
-    if (!e.target.closest('.search-wrap')) hideSearch();
-  });
-
-  $('#homeBtn').addEventListener('click', () => {
-    const route = defaultRoute();
-    if (route) navigate(route.domain, '_');
-  });
-
   $('#indexBtn').addEventListener('click', () => navigateIndex());
   dirtyBtn.addEventListener('click', () => {
     if (drafts.size) {
@@ -5621,12 +5497,6 @@ html[data-theme="dark"] .export-hover{box-shadow:0 16px 40px rgba(0,0,0,.55)}
     if (e.key === 'Escape' && orphanPanel) {
       e.preventDefault();
       closeOrphanPanel();
-      return;
-    }
-    if (e.key === '/' && !typing) {
-      e.preventDefault();
-      const indexSearch = state.view === 'index' ? $('#indexSearch') : null;
-      (indexSearch || searchInput).focus();
       return;
     }
     if (

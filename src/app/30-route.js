@@ -182,7 +182,6 @@
     key = canon.key;
     if (!opts.keepBacklink) state.backlink = null;
     const h = '#/' + encodeURIComponent(domain) + '/' + encodeURIComponent(key);
-    hideSearch();
     state.expanded.clear();
     state.focusPath = null;
     window.scrollTo(0, 0);
@@ -194,7 +193,6 @@
   }
 
   function navigateIndex(domain) {
-    hideSearch();
     state.expanded.clear();
     state.focusPath = null;
     state.backlink = null;
@@ -215,7 +213,6 @@
   function navigateGraph(domain, key, options) {
     const canon = canonicalKey(domain, key);
     const h = '#/graph/' + encodeURIComponent(canon.domain) + '/' + encodeURIComponent(canon.key);
-    hideSearch();
     state.backlink = null;
     state.expanded.clear();
     state.focusPath = null;

@@ -85,8 +85,6 @@
 
   const $ = (sel) => document.querySelector(sel);
   const reader = $('#reader');
-  const searchInput = $('#search');
-  const searchResults = $('#searchResults');
   const subjectSelect = $('#subject');
   const viewToggle = $('#viewToggle');
   const readHistorySelect = $('#readHistory');

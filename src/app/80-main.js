@@ -125,58 +125,6 @@
   const initialFocus = query.get('focus');
   if (initialFocus) state.focusPath = initialFocus.trim();
 
-  searchInput.addEventListener('input', renderSearch);
-  searchInput.addEventListener('focus', () => {
-    if (searchInput.value.trim()) renderSearch();
-  });
-
-  // ?q=gpu 可直接開啟搜尋結果（展示、除錯用）
-  const initialQuery = query.get('q');
-  if (initialQuery) {
-    searchInput.value = initialQuery;
-    renderSearch();
-  }
-
-  searchInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-      searchInput.value = '';
-      hideSearch();
-      searchInput.blur();
-    } else if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      moveSearchFocus(1);
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      moveSearchFocus(-1);
-    } else if (e.key === 'Enter' && searchHits.length) {
-      e.preventDefault();
-      const first = searchResults.querySelector('.search-item');
-      if (first) first.click();
-    }
-  });
-
-  searchResults.addEventListener('keydown', (e) => {
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      moveSearchFocus(1);
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      moveSearchFocus(-1);
-    } else if (e.key === 'Escape') {
-      searchInput.focus();
-      hideSearch();
-    }
-  });
-
-  document.addEventListener('click', (e) => {
-    if (!e.target.closest('.search-wrap')) hideSearch();
-  });
-
-  $('#homeBtn').addEventListener('click', () => {
-    const route = defaultRoute();
-    if (route) navigate(route.domain, '_');
-  });
-
   $('#indexBtn').addEventListener('click', () => navigateIndex());
   dirtyBtn.addEventListener('click', () => {
     if (drafts.size) {
@@ -213,12 +161,6 @@
     if (e.key === 'Escape' && orphanPanel) {
       e.preventDefault();
       closeOrphanPanel();
-      return;
-    }
-    if (e.key === '/' && !typing) {
-      e.preventDefault();
-      const indexSearch = state.view === 'index' ? $('#indexSearch') : null;
-      (indexSearch || searchInput).focus();
       return;
     }
     if (

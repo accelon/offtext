@@ -304,24 +304,6 @@ const subject = await evaluate(`(async () => {
   };
 })()`);
 
-// 搜尋 + 切換條目
-const search = await evaluate(`(async () => {
-  const input = document.querySelector('#search');
-  input.value = 'gpu';
-  input.dispatchEvent(new Event('input', { bubbles: true }));
-  await new Promise((r) => setTimeout(r, 120));
-  const hits = [...document.querySelectorAll('.search-item')];
-  if (!hits.length) return { count: 0 };
-  hits[0].click();
-  await new Promise((r) => setTimeout(r, 250));
-  return {
-    count: hits.length,
-    first: hits[0].querySelector('.search-key').textContent,
-    title: document.querySelector('.entry-title').textContent,
-    hash: location.hash,
-  };
-})()`);
-
 // Ctrl/⌘+點擊引用：直接替換閱讀頁，不展開。
 const ctrlClick = await evaluate(`(async () => {
   const first = document.querySelector('.nt-ref');
@@ -526,7 +508,6 @@ console.log(
       crossBacklink,
       index,
       subject,
-      search,
       ctrlClick,
       graphButton,
       graph,

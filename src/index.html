@@ -41,7 +41,12 @@
   </section>
 
   <header class="topbar">
-    <button id="homeBtn" class="home-icon" type="button" title="回到科目首頁" aria-label="回到科目首頁">⌂</button>
+    <button id="indexBtn" class="home-icon index-home" type="button" title="索引" aria-label="索引">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M4 11.2 12 4l8 7.2"/>
+        <path d="M6.5 10.5V20h11v-9.5"/>
+      </svg>
+    </button>
 
     <label class="subject">科目
       <select id="subject" aria-label="選擇科目"></select>
@@ -52,11 +57,7 @@
       <option value="">閱讀歷史</option>
     </select>
 
-    <div class="search-wrap">
-      <input id="search" type="search" placeholder="搜尋…（/）" autocomplete="off" spellcheck="false"
-             role="combobox" aria-expanded="false" aria-controls="searchResults" aria-label="搜尋條目">
-      <div id="searchResults" class="search-results" role="listbox" aria-label="搜尋結果" hidden></div>
-    </div>
+    <span class="topbar-spacer" aria-hidden="true"></span>
 
     <button id="editBtn" class="ghost edit-mode-btn" type="button" title="在目前條目上直接編輯（游標留在原處）">編輯</button>
     <button id="orphanBtn" class="ghost orphan-btn" type="button" hidden title="列出沒有反鏈接的條目；點選後直接編寫">孤兒</button>
@@ -73,7 +74,6 @@
         <circle cx="12" cy="16.5" r="3.2"/>
       </svg>
     </button>
-    <button id="indexBtn" class="ghost" type="button">索引</button>
     <button id="leaveBtn" class="home-icon leave-btn" type="button" title="離開系統（儲存未存檔的科目）"
             aria-label="離開系統">
       <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">

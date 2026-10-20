@@ -96,7 +96,6 @@ const result = await evaluate(`(async () => {
   await new Promise((r) => setTimeout(r, 350));
   const bar = document.querySelector('.topbar').getBoundingClientRect();
   const settings = document.querySelector('#settingsBtn').getBoundingClientRect();
-  const search = document.querySelector('.search-wrap').getBoundingClientRect();
   const rows = new Set([...document.querySelectorAll('.topbar > *')].map((el) => Math.round(el.getBoundingClientRect().top)));
   return {
     width: innerWidth,
@@ -104,7 +103,6 @@ const result = await evaluate(`(async () => {
     rows: [...rows].sort((a, b) => a - b),
     settingsTop: Math.round(settings.top),
     settingsWrapped: settings.top > bar.top + 40,
-    searchWidth: Math.round(search.width),
     exportVisible: !document.querySelector('#exportBtn').hidden,
     saveVisible: !document.querySelector('#saveBtn').hidden,
     editVisible: !document.querySelector('#editBtn').hidden,

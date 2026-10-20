@@ -172,7 +172,6 @@ const font = await evaluate(`(async () => {
     title: getComputedStyle(document.querySelector('.entry-title')).fontSize,
     line: getComputedStyle(document.querySelector('.nt-line')).fontSize,
     backlink: getComputedStyle(document.querySelector('.backlinks')).fontSize,
-    search: getComputedStyle(document.querySelector('#search')).fontSize,
     cm: getComputedStyle(document.querySelector('.cm-content')).fontSize,
     stored: localStorage.getItem('offtext.fontsize.v1'),
   });
@@ -259,28 +258,6 @@ const selectionGuard = await evaluate(`(async () => {
     toastVisible: !!toast && toast.classList.contains('is-visible'),
     addTermHidden: document.querySelector('.add-term-btn')?.hidden,
   };
-})()`);
-
-// 搜尋：簡體顯示時打簡體也找得到原文條目。
-const search = await evaluate(`(async () => {
-  const input = document.querySelector('#search');
-  input.focus();
-  input.value = '义和团';
-  input.dispatchEvent(new Event('input', { bubbles: true }));
-  await new Promise((r) => setTimeout(r, 120));
-  const first = document.querySelector('.search-item');
-  return {
-    count: document.querySelectorAll('.search-item').length,
-    key: first?.querySelector('.search-key')?.textContent,
-    preview: first?.querySelector('.search-preview')?.textContent,
-    firstIsTarget: first?.querySelector('.search-key')?.textContent === '义和團',
-  };
-})()`);
-await evaluate(`(() => {
-  const input = document.querySelector('#search');
-  input.value = '';
-  input.dispatchEvent(new Event('input', { bubbles: true }));
-  input.blur();
 })()`);
 
 // 強制簡體：後訓練 → 后训练（合併字也轉）。
@@ -403,7 +380,6 @@ console.log(
       simDemo,
       lossless,
       selectionGuard,
-      search,
       forced,
       reloaded,
       indexSim,
